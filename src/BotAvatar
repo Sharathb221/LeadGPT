@@ -1,0 +1,32 @@
+// BotAvatar.js
+import React, { useState } from 'react';
+import Lottie from 'lottie-react';
+import botAnimation from './assets/animations/bot-animation.json';
+
+function BotAvatar({ message }) {
+  const [animationComplete, setAnimationComplete] = useState(false);
+  
+  return (
+    <div className={"w-8 h-8 rounded-full flex items-center justify-center mr-2 overflow-hidden " + 
+      (animationComplete ? "bg-indigo-200" : "bg-white")}>
+      <Lottie 
+        animationData={botAnimation} 
+        loop={false}
+        autoplay={true}
+        lottieRef={(ref) => {
+          if (ref) {
+            ref.addEventListener('enterFrame', (event) => {
+              if (event.currentTime >= 193) {
+                ref.pause();
+                setAnimationComplete(true);
+              }
+            });
+          }
+        }}
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
+  );
+}
+
+export default BotAvatar;
