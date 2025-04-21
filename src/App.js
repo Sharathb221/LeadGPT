@@ -2,7 +2,8 @@
 import './polyfill';  // Make sure this is imported first
 
 // All imports at the top - properly ordered
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, createContext, useContext, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { MessageSquare, Home, Bell, Settings, Smile, Send, PenLine, X, ChevronDown } from 'lucide-react';
 import Lottie from 'lottie-react';
 import botAnimation from './assets/animations/bot-animation.json';
@@ -14,6 +15,10 @@ import leadGroupAcademyImg from './assets/images/lead-academy.png';
 import notSureImg from './assets/images/not-sure.png';
 import avatar from './assets/images/avatar.png';
 import Logo from './assets/images/logo.png'; 
+import SettingsPage from './SettingsPage.js'; // Adjust the path based on your project structure
+
+// Create AppContext for sharing state between components
+export const AppContext = createContext();
 
 // Toast component for notifications
 const Toast = ({ message, isVisible, onClose }) => {
@@ -371,6 +376,26 @@ function CategoryModal({ isOpen, isClosing, categories, onCategorySelect }) {
 // New CategoryDropdown component
 function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    
+    // Add event listener when dropdown is open
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    // Clean up event listener
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
   
   const handleCategoryClick = (category) => {
     if (category.active) {
@@ -384,7 +409,7 @@ function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
   };
   
   return (
-    <div className="category-dropdown">
+    <div className="category-dropdown" ref={dropdownRef}>
       <button 
         className="dropdown-toggle"
         onClick={() => setIsOpen(!isOpen)}
@@ -432,13 +457,87 @@ function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
   );
 }
 
-export default function App() {
+// Sidebar component with navigation - FIXED: Increased z-index and explicit styling
+function Sidebar({ onNavigate, activePage }) {
+  return (
+    <div className="fixed top-0 left-0 h-screen w-20 bg-white border-r border-gray-200 flex flex-col items-center z-50">
+      <div className="p-4">
+        <div className="w-12 h-12 bg-indigo-700 rounded-xl flex items-center justify-center">
+          <img src={Logo} alt="Logo Icon" className="w-12 h-12 object-contain" />
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center gap-8 mt-6">
+        <button 
+          className={`w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 sidebar-icon ${activePage === 'home' ? 'bg-gray-100' : ''}`}
+          onClick={() => onNavigate('home')}
+        >
+          <Home size={20} />
+        </button>
+        <button 
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 sidebar-icon"
+          onClick={() => onNavigate('notifications')}
+        >
+          <Bell size={20} />
+        </button>
+      </div>
+
+      <div className="flex flex-col items-center mt-auto">
+        <button 
+          className={`w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 mb-8 sidebar-icon ${activePage === 'settings' ? 'bg-gray-100' : ''}`}
+          onClick={() => onNavigate('settings')}
+        >
+          <Settings size={20} />
+        </button>
+
+        <div className="mb-4">
+          <div className="w-10 h-10 bg-red-100 rounded-full overflow-hidden">
+            <img src={avatar} alt="User avatar" className="w-full h-full object-cover" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Settings wrapper component with context
+function SettingsWrapper() {
+  const navigate = useNavigate();
+  
+  const handleNavigate = (page) => {
+    if (page === 'home') {
+      navigate('/');
+    } else if (page === 'settings') {
+      navigate('/settings');
+    } else if (page === 'notifications') {
+      // In a real implementation, you would use the showToastMessage function
+      console.log("Notifications Coming Soon");
+    }
+  };
+  
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Left sidebar with navigation */}
+      <Sidebar onNavigate={handleNavigate} activePage="settings" />
+      
+      {/* Main content area */}
+      <div className="flex-1 pl-20">
+        <SettingsPage />
+      </div>
+    </div>
+  );
+}
+
+// Main Chat component
+function ChatApp() {
+  const navigate = useNavigate();
+  // Access app context for shared state
+  const { selectedCategory, updateSelectedCategory, showModal, setShowModal } = useContext(AppContext);
+  
   // State management
   const [query, setQuery] = useState('');
-  const [showModal, setShowModal] = useState(true);
   const [isModalClosing, setIsModalClosing] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -488,13 +587,24 @@ export default function App() {
       id: 'lead-academy'
     },
     {
-      title: "Anything and Everything",
+      title: "I'm not sure",
       image: notSureImg,
       alt: 'Question marks',
       active: false,
       id: 'anything'
     }
   ];
+
+  // Handle navigation
+  const handleNavigate = (page) => {
+    if (page === 'home') {
+      navigate('/');
+    } else if (page === 'settings') {
+      navigate('/settings');
+    } else if (page === 'notifications') {
+      showToastMessage("Notifications Coming Soon");
+    }
+  };
 
   // Scroll to bottom of messages with smooth animation
   const scrollToBottom = () => {
@@ -508,6 +618,9 @@ export default function App() {
     scrollToBottom();
   }, [messages]);
 
+  // Input ref for focusing after modal close
+  const inputRef = useRef(null);
+  
   const handleCategorySelect = (category) => {
     // If this is called from modal (first time)
     if (showModal) {
@@ -518,11 +631,16 @@ export default function App() {
       setTimeout(() => {
         setShowModal(false);
         setIsModalClosing(false);
+        
+        // Focus the input field after modal closes
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
       }, 300); // Match this to the CSS animation duration
     }
     
-    // Set selected category immediately in both cases
-    setSelectedCategory(category);
+    // Update the selected category in the app context
+    updateSelectedCategory(category);
     
     // Optional: Add a system message about changing modes
     if (selectedCategory && selectedCategory.id !== category.id) {
@@ -580,6 +698,25 @@ export default function App() {
     }, 1500);
   };
 
+  // Emoji picker component
+  const EmojiPicker = () => {
+    return (
+      <div className="absolute bottom-20 right-16 bg-white p-2 rounded-lg shadow-lg border border-gray-200 z-20">
+        <div className="grid grid-cols-6 gap-2">
+          {commonEmojis.map((emoji, index) => (
+            <button
+              key={index}
+              className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md transition-colors"
+              onClick={() => handleEmojiClick(emoji)}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Include the modal styles */}
@@ -592,47 +729,14 @@ export default function App() {
         onClose={() => setToast({ ...toast, visible: false })}
       />
       
-      {/* Left sidebar */}
-      <div className="fixed top-0 left-0 h-screen w-20 bg-white border-r border-gray-200 flex flex-col items-center z-40">
-        <div className="p-4">
-          <div className="w-12 h-12 bg-indigo-700 rounded-xl flex items-center justify-center">
-            <img src={Logo} alt="Logo Icon" className="w-12 h-12 object-contain" />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-8 mt-6">
-          <button className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 sidebar-icon">
-            <Home size={20} />
-          </button>
-          <button 
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 sidebar-icon"
-            onClick={() => showToastMessage("Notifications Coming Soon")}
-          >
-            <Bell size={20} />
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center mt-auto">
-          <button 
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 mb-8 sidebar-icon"
-            onClick={() => showToastMessage("Settings Coming Soon")}
-          >
-            <Settings size={20} />
-          </button>
-
-          <div className="mb-4">
-            <div className="w-10 h-10 bg-red-100 rounded-full overflow-hidden">
-              <img src={avatar} alt="User avatar" className="w-full h-full object-cover" />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Left sidebar with navigation */}
+      <Sidebar onNavigate={handleNavigate} activePage="home" />
 
       <div className="flex-1 flex flex-col pl-20">
-        {/* Header */}
+        {/* Header with fixed emoji accessibility */}
         <header className="sticky top-0 left-0 right-0 z-30 h-16 border-b border-gray-200 px-6 flex items-center justify-between bg-white">
           <h1 className="text-xl font-semibold text-gray-800">
-            LEAD GPT 1.0 ✨ <span className="font-normal">(Beta)</span>
+            LEAD GPT 1.0 <span role="img" aria-label="sparkles">✨</span> <span className="font-normal">(Beta)</span>
           </h1>
           
           {/* Category dropdown in the top right */}
@@ -650,8 +754,8 @@ export default function App() {
           {/* Chat messages */}
           <div className="h-full overflow-y-auto p-4 pt-2 pb-24">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col-reverse justify-start items-center">
-                <div className="text-center text-gray-500 mb-4">
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center text-gray-500">
                   <MessageSquare size={40} className="mx-auto mb-2 opacity-40" />
                   <p>No messages yet. Start a new conversation!</p>
                 </div>
@@ -686,7 +790,7 @@ export default function App() {
                       {message.sender !== 'system' && (
                         <div className={`text-xs mt-1 ${message.sender === 'user' ? 'text-right' : 'text-left'} text-gray-500`}>
                           {message.timestamp}
-                          {message.sender === 'user' && <span className="ml-1">✓✓</span>}
+                          {message.sender === 'user' && <span role="img" aria-label="read receipts">✓✓</span>}
                         </div>
                       )}
                     </div>
@@ -726,78 +830,85 @@ export default function App() {
           
           {/* Input area at bottom */}
           <div className="absolute bottom-0 left-0 right-0 bg-gray-50 p-4">
-            <div className="flex items-center gap-3 max-w-4xl mx-auto bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex-1 flex items-center">
-                <PenLine size={18} className="text-gray-400 mr-3 ml-1" />
-                <input 
-                  type="text" 
-                  placeholder="Type your query here.."
-                  className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-1"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  disabled={showModal || isModalClosing}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !showModal && !isModalClosing && query.trim()) {
-                      handleSendMessage();
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  ref={emojiButtonRef}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                >
-                  <Smile size={22} />
-                </button>
-                {showEmojiPicker && (
-                  <div 
-                    className="absolute z-50"
-                    style={{
-                      bottom: '90px', /* Position above the emoji button */
-                      left: '890px',
-                    }}
-                  >
-                    <div className="bg-white shadow-lg rounded-lg p-2 border border-gray-200 w-64">
-                      <div className="grid grid-cols-6 gap-2">
-                        {commonEmojis.map((emoji, index) => (
-                          <button 
-                            key={index} 
-                            className="text-xl hover:bg-gray-100 p-1 rounded"
-                            onClick={() => handleEmojiClick(emoji)}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <button 
-                  className={`rounded-full px-4 py-2.5 flex items-center justify-center gap-1
-                    ${!query.trim() || showModal || isModalClosing || isLoading
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                      : 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'}`}
-                  disabled={!query.trim() || showModal || isModalClosing || isLoading}
-                  onClick={handleSendMessage}
-                >
-                  Send
-                  <Send size={16} className="ml-1" />
-                </button>
-              </div>
-            </div>
-          </div>
+  <div className="flex items-center gap-3 max-w-4xl mx-auto bg-white rounded-xl p-4 shadow-sm">
+    <div className="flex-1 flex items-center">
+      <PenLine size={18} className="text-gray-400 mr-3 ml-1" />
+      <input 
+        ref={inputRef}
+        type="text" 
+        placeholder="Type your query here.."
+        className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-1"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        disabled={showModal || isModalClosing}
+        onKeyPress={(e) => {
+          if (e.key === 'Enter' && !showModal && !isModalClosing && query.trim()) {
+            handleSendMessage();
+          }
+        }}
+      />
+    </div>
+    
+    <button
+      ref={emojiButtonRef}
+      className="text-gray-400 hover:text-gray-600 transition-colors"
+      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+    >
+      <Smile size={20} />
+    </button>
+    
+    {showEmojiPicker && <EmojiPicker />}
+    
+    <button 
+      className={`rounded-lg p-2 ${query.trim() && !isLoading ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}
+      onClick={handleSendMessage}
+      disabled={!query.trim() || isLoading}
+    >
+      <Send size={20} />
+    </button>
+  </div>
+</div>
+          
+          {/* Category selection modal */}
+          <CategoryModal 
+            isOpen={showModal} 
+            isClosing={isModalClosing}
+            categories={categories}
+            onCategorySelect={handleCategorySelect}
+          />
         </div>
       </div>
-      
-      {/* Category selection modal with fade-out animation */}
-      <CategoryModal 
-        isOpen={showModal} 
-        isClosing={isModalClosing}
-        categories={categories} 
-        onCategorySelect={handleCategorySelect}
-      />
     </div>
   );
 }
+
+// Main App component
+function App() {
+  // App-level state
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showModal, setShowModal] = useState(true);
+  
+  // Function to update the selected category
+  const updateSelectedCategory = (category) => {
+    setSelectedCategory(category);
+  };
+  
+  return (
+    <AppContext.Provider value={{ 
+      selectedCategory, 
+      updateSelectedCategory, 
+      showModal, 
+      setShowModal 
+    }}>
+      <Router>
+        <Routes>
+          <Route path="/" element={<ChatApp />} />
+          <Route path="/settings" element={<SettingsWrapper />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AppContext.Provider>
+  );
+}
+
+export default App;
