@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import APISettings from './APISettings';
+import { extractTextFromPDF, validatePDFFile } from './pdfUtils';
 
 const SettingsPage = () => {
   // State for active tab
@@ -16,6 +18,9 @@ const SettingsPage = () => {
   // State for changelog
   const [changeLog, setChangeLog] = useState([]);
   
+  // State for file parsing
+  const [parsingStatus, setParsingStatus] = useState('');
+  
   // List of available tabs with active state
   const tabs = [
     { name: 'Student App', active: true },
@@ -24,6 +29,19 @@ const SettingsPage = () => {
     { name: 'Orders and Billing', active: false },
     { name: 'Lead Group Academy', active: false }
   ];
+  
+  // Save current settings to localStorage - using useCallback to memoize this function
+  const saveToLocalStorage = useCallback((updatedChangeLog, lastUploadDate) => {
+    const dataToSave = {
+      l1SPOC,
+      l2SPOC,
+      uploadSuccess: true,
+      lastUploaded: lastUploadDate || lastUploaded,
+      changeLog: updatedChangeLog || changeLog
+    };
+    
+    localStorage.setItem(`settings_${activeTab}`, JSON.stringify(dataToSave));
+  }, [l1SPOC, l2SPOC, lastUploaded, changeLog, activeTab]);
   
   // Function to handle tab change
   const handleTabChange = (tab) => {
@@ -53,67 +71,76 @@ const SettingsPage = () => {
   // Function to handle file selection
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      
+      // Validate the PDF file
+      const validation = validatePDFFile(file);
+      
+      if (validation.valid) {
+        setSelectedFile(file);
+        setParsingStatus('');
+      } else {
+        setSelectedFile(null);
+        setParsingStatus(`Error: ${validation.error}`);
+      }
     }
   };
   
   // Function to handle file upload
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFile) {
-      // Store file content in localStorage (in a real app, you'd upload to a server)
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        // In a real app, you might not want to store large files in localStorage
-        // This is just for demo purposes
-        try {
-          const fileData = {
-            name: selectedFile.name,
-            size: selectedFile.size,
-            type: selectedFile.type,
-            content: event.target.result.substring(0, 1000) + '...' // Truncate for localStorage
-          };
-          
-          localStorage.setItem(`file_${activeTab}`, JSON.stringify(fileData));
-          
-          // Update UI states
-          const currentDate = new Date().toLocaleDateString();
-          setUploadSuccess(true);
-          setLastUploaded(currentDate);
-          
-          // Add entry to changelog
-          const newEntry = {
-            document: 'Product Documentation',
-            fileName: selectedFile.name,
-            uploadedBy: l1SPOC.split(' ')[0] || 'User',
-            timestamp: 'Just now',
-            date: currentDate
-          };
-          
-          const updatedChangeLog = [newEntry, ...changeLog];
-          setChangeLog(updatedChangeLog);
-          
-          // Save all settings to localStorage
-          saveToLocalStorage(updatedChangeLog, currentDate);
-        } catch (error) {
-          console.error("Error saving to localStorage:", error);
-        }
-      };
+      setParsingStatus('Parsing document...');
       
-      reader.readAsDataURL(selectedFile);
+      try {
+        // Extract text from the PDF using our utility function
+        const extractedText = await extractTextFromPDF(selectedFile);
+        
+        // Create file data object with the extracted text
+        const fileData = {
+          name: selectedFile.name,
+          size: selectedFile.size,
+          type: selectedFile.type,
+          content: extractedText
+        };
+        
+        // Store in localStorage - this will overwrite any existing file for this tab
+        localStorage.setItem(`file_${activeTab}`, JSON.stringify(fileData));
+        
+        // Update UI states - always set to true on successful upload
+        const currentDate = new Date().toLocaleDateString();
+        const currentTime = new Date().toLocaleTimeString();
+        setUploadSuccess(true);
+        setLastUploaded(currentDate);
+        setParsingStatus('Document parsed successfully!');
+        
+        // Create a new entry for the changelog
+        const newEntry = {
+          document: 'Product Documentation',
+          fileName: selectedFile.name,
+          uploadedBy: l1SPOC.split(' ')[0] || 'User',
+          timestamp: currentTime,
+          date: currentDate
+        };
+        
+        // Always add the new entry to the beginning of the changelog
+        const updatedChangeLog = [newEntry, ...changeLog];
+        setChangeLog(updatedChangeLog);
+        
+        // Save all settings to localStorage
+        saveToLocalStorage(updatedChangeLog, currentDate);
+        
+        // Clear selected file to reset the UI
+        setSelectedFile(null);
+        
+        // Clear status message after delay
+        setTimeout(() => {
+          setParsingStatus('');
+        }, 3000);
+      } catch (error) {
+        console.error("Error processing PDF:", error);
+        setParsingStatus(`Error: ${error.message}`);
+      }
     }
-  };
-  
-  // Save current settings to localStorage
-  const saveToLocalStorage = (updatedChangeLog, lastUploadDate) => {
-    const dataToSave = {
-      l1SPOC,
-      l2SPOC,
-      uploadSuccess: true,
-      lastUploaded: lastUploadDate || lastUploaded,
-      changeLog: updatedChangeLog || changeLog
-    };
-    
-    localStorage.setItem(`settings_${activeTab}`, JSON.stringify(dataToSave));
   };
   
   // Update localStorage when l1/l2 SPOC changes
@@ -121,7 +148,7 @@ const SettingsPage = () => {
     if (l1SPOC || l2SPOC) {
       saveToLocalStorage();
     }
-  }, [l1SPOC, l2SPOC]);
+  }, [l1SPOC, l2SPOC, saveToLocalStorage]);
   
   // Load initial data when component mounts
   useEffect(() => {
@@ -135,20 +162,20 @@ const SettingsPage = () => {
       setLastUploaded(data.lastUploaded || null);
       setChangeLog(data.changeLog || []);
     }
-  }, []);
+  }, [activeTab]);
 
   return (
     <>
       {/* Header */}
       <header className="sticky top-0 left-0 right-0 z-30 h-16 border-b border-gray-200 px-6 flex items-center bg-white">
         <h1 className="text-xl font-semibold text-gray-800">
-          LEAD GPT 1.0 ✨ <span className="font-normal">(Beta)</span>
+          LEAD GPT 1.0 <span role="img" aria-label="sparkles">✨</span> <span className="font-normal">(Beta)</span>
         </h1>
       </header>
       
       {/* Main content */}
       <div className="flex flex-col bg-gray-50">
-        {/* Tabs navigation - MODIFIED SPACING HERE */}
+        {/* Tabs navigation */}
         <div className="flex bg-white border-b border-gray-200">
           {tabs.map((tab) => (
             <div
@@ -167,8 +194,11 @@ const SettingsPage = () => {
           ))}
         </div>
         
-        {/* Settings content - reduced padding on the left */}
+        {/* Settings content */}
         <div className="pl-6 pr-8 py-8 w-full">
+          {/* API Settings Section */}
+          <APISettings />
+          
           {/* Product Owners section */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Owners</h3>
@@ -230,12 +260,12 @@ const SettingsPage = () => {
                   <input
                     id="file-input"
                     type="file"
-                    accept=".pdf,.docx,.doc,.txt"
+                    accept=".pdf"
                     style={{ display: 'none' }}
                     onChange={handleFileChange}
                   />
                   
-                  {selectedFile && !uploadSuccess && (
+                  {selectedFile && (
                     <div className="mt-4 text-center">
                       <p className="text-sm text-gray-600 mb-2">Selected: {selectedFile.name}</p>
                       <button
@@ -246,6 +276,17 @@ const SettingsPage = () => {
                       </button>
                     </div>
                   )}
+                  
+                  {parsingStatus && (
+                    <div className={`mt-3 text-sm ${parsingStatus.includes('Error') ? 'text-red-500' : 'text-green-600'}`}>
+                      {parsingStatus}
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 text-xs text-gray-500 text-center">
+                    <p>Currently supporting PDF files only</p>
+                    <p>Max file size: 10MB</p>
+                  </div>
                 </div>
               </div>
               
@@ -271,7 +312,7 @@ const SettingsPage = () => {
                   </div>
                 ) : (
                   <div className="flex justify-center items-center h-40 text-gray-400">
-                    <p>Wow. Much empty 📦</p>
+                    <p>Wow. Much empty <span role="img" aria-label="box">📦</span></p>
                   </div>
                 )}
               </div>

@@ -1,8 +1,7 @@
-// Import polyfill first
 import './polyfill';  // Make sure this is imported first
 
 // All imports at the top - properly ordered
-import React, { useState, useRef, useEffect, createContext, useContext, useCallback } from 'react';
+import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { MessageSquare, Home, Bell, Settings, Smile, Send, PenLine, X, ChevronDown } from 'lucide-react';
 import Lottie from 'lottie-react';
@@ -15,7 +14,47 @@ import leadGroupAcademyImg from './assets/images/lead-academy.png';
 import notSureImg from './assets/images/not-sure.png';
 import avatar from './assets/images/avatar.png';
 import Logo from './assets/images/logo.png'; 
-import SettingsPage from './SettingsPage.js'; // Adjust the path based on your project structure
+
+// Import the new components and services
+import PDFContextProvider, { PDFContext } from './PDFContextProvider';
+import { generateResponse } from './openAIService';
+import SettingsPage from './SettingsPage';
+
+
+// Main App component
+function App() {
+  // App-level state
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showModal, setShowModal] = useState(true);
+  
+  // Function to update the selected category
+  const updateSelectedCategory = (category) => {
+    setSelectedCategory(category);
+  };
+  
+  return (
+    <AppContext.Provider value={{ 
+      selectedCategory, 
+      updateSelectedCategory, 
+      showModal, 
+      setShowModal 
+    }}>
+      <PDFContextProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<ChatApp />} />
+            <Route path="/settings" element={<SettingsWrapper />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </PDFContextProvider>
+    </AppContext.Provider>
+  );
+}
+
+// Export App as the default export
+export default App;// Import polyfill first
+
 
 // Create AppContext for sharing state between components
 export const AppContext = createContext();
@@ -288,7 +327,7 @@ const ModalStyles = () => {
   return null;
 };
 
-// BotAvatar component - Note it's before the main App component
+// BotAvatar component
 function BotAvatar({ message }) {
   const [animationComplete, setAnimationComplete] = useState(false);
   
@@ -332,13 +371,6 @@ function CategoryModal({ isOpen, isClosing, categories, onCategorySelect }) {
   const trackCategorySelection = (category) => {
     console.log(`Category selected: ${category.title}`); 
     // In a real implementation, you would send this to Google Analytics or clickstream
-    // Example: 
-    // if (window.gtag) {
-    //   window.gtag('event', 'category_selection', {
-    //     'category_name': category.title,
-    //     'category_id': category.id // assuming you add IDs to categories
-    //   });
-    // }
   };
   
   return (
@@ -373,7 +405,7 @@ function CategoryModal({ isOpen, isClosing, categories, onCategorySelect }) {
   );
 }
 
-// New CategoryDropdown component
+// CategoryDropdown component
 function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -457,7 +489,7 @@ function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
   );
 }
 
-// Sidebar component with navigation - FIXED: Increased z-index and explicit styling
+// Sidebar component with navigation
 function Sidebar({ onNavigate, activePage }) {
   return (
     <div className="fixed top-0 left-0 h-screen w-20 bg-white border-r border-gray-200 flex flex-col items-center z-50">
@@ -528,11 +560,13 @@ function SettingsWrapper() {
   );
 }
 
-// Main Chat component
+// ChatApp component with OpenAI integration
 function ChatApp() {
   const navigate = useNavigate();
   // Access app context for shared state
   const { selectedCategory, updateSelectedCategory, showModal, setShowModal } = useContext(AppContext);
+  // Access PDF context for document data
+  const { getContextForQuery } = useContext(PDFContext);
   
   // State management
   const [query, setQuery] = useState('');
@@ -541,6 +575,7 @@ function ChatApp() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
+  const [apiError, setApiError] = useState(null);
   
   // Refs for scrolling and positioning
   const messagesEndRef = useRef(null);
@@ -669,8 +704,11 @@ function ChatApp() {
     setShowEmojiPicker(false);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!query.trim() || isLoading) return;
+    
+    // Reset any previous errors
+    setApiError(null);
     
     // Add user message to chat
     const userMessage = {
@@ -684,18 +722,45 @@ function ChatApp() {
     setIsLoading(true);
     setQuery('');
     
-    // Simulate response after delay
-    setTimeout(() => {
+    try {
+      // Get the API key from localStorage
+      const apiKey = localStorage.getItem('openai_api_key');
+      
+      if (!apiKey) {
+        throw new Error('OpenAI API key not found. Please add your API key in Settings.');
+      }
+      
+      // Get context for the current query from the PDF content
+      const documentContext = await getContextForQuery(query);
+      
+      // Call OpenAI API through our service
+      const botResponseText = await generateResponse(query, documentContext, apiKey);
+      
+      // Add bot response to chat
       const botResponse = {
         id: Date.now() + 1,
-        text: `This is a simulated response to: "${userMessage.text}". In a real implementation, this would come from OpenAI's API with context from your uploaded PDFs.`,
+        text: botResponseText,
         sender: 'bot',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       
       setMessages((prev) => [...prev, botResponse]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Add error message to chat
+      const errorResponse = {
+        id: Date.now() + 1,
+        text: `Error: ${error.message || 'Something went wrong. Please try again.'}`,
+        sender: 'bot',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setMessages((prev) => [...prev, errorResponse]);
+      setApiError(error.message);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   // Emoji picker component
@@ -758,6 +823,12 @@ function ChatApp() {
                 <div className="text-center text-gray-500">
                   <MessageSquare size={40} className="mx-auto mb-2 opacity-40" />
                   <p>No messages yet. Start a new conversation!</p>
+                  {!selectedCategory?.active && (
+                    <p className="mt-2 text-sm">Note: You are currently in a non-active category. Switch to Student App to start chatting.</p>
+                  )}
+                  {apiError && (
+                    <p className="mt-2 text-sm text-red-500">Error: {apiError}</p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -790,7 +861,7 @@ function ChatApp() {
                       {message.sender !== 'system' && (
                         <div className={`text-xs mt-1 ${message.sender === 'user' ? 'text-right' : 'text-left'} text-gray-500`}>
                           {message.timestamp}
-                          {message.sender === 'user' && <span role="img" aria-label="read receipts">✓✓</span>}
+                          {message.sender === 'user' && <span role="img" aria-label="read receipts"> ✓✓</span>}
                         </div>
                       )}
                     </div>
@@ -830,44 +901,49 @@ function ChatApp() {
           
           {/* Input area at bottom */}
           <div className="absolute bottom-0 left-0 right-0 bg-gray-50 p-4">
-  <div className="flex items-center gap-3 max-w-4xl mx-auto bg-white rounded-xl p-4 shadow-sm">
-    <div className="flex-1 flex items-center">
-      <PenLine size={18} className="text-gray-400 mr-3 ml-1" />
-      <input 
-        ref={inputRef}
-        type="text" 
-        placeholder="Type your query here.."
-        className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-1"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        disabled={showModal || isModalClosing}
-        onKeyPress={(e) => {
-          if (e.key === 'Enter' && !showModal && !isModalClosing && query.trim()) {
-            handleSendMessage();
-          }
-        }}
-      />
-    </div>
-    
-    <button
-      ref={emojiButtonRef}
-      className="text-gray-400 hover:text-gray-600 transition-colors"
-      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-    >
-      <Smile size={20} />
-    </button>
-    
-    {showEmojiPicker && <EmojiPicker />}
-    
-    <button 
-      className={`rounded-lg p-2 ${query.trim() && !isLoading ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}
-      onClick={handleSendMessage}
-      disabled={!query.trim() || isLoading}
-    >
-      <Send size={20} />
-    </button>
-  </div>
-</div>
+            <div className="flex items-center gap-3 max-w-4xl mx-auto bg-white rounded-xl p-4 shadow-sm">
+              <div className="flex-1 flex items-center">
+                <PenLine size={18} className="text-gray-400 mr-3 ml-1" />
+                <input 
+                  ref={inputRef}
+                  type="text" 
+                  placeholder="Type your query here.."
+                  className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-1"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  disabled={showModal || isModalClosing || !selectedCategory?.active}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !showModal && !isModalClosing && query.trim() && selectedCategory?.active) {
+                      handleSendMessage();
+                    }
+                  }}
+                />
+              </div>
+              
+              <button
+                ref={emojiButtonRef}
+                className={`text-gray-400 hover:text-gray-600 transition-colors ${!selectedCategory?.active ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => selectedCategory?.active && setShowEmojiPicker(!showEmojiPicker)}
+                disabled={!selectedCategory?.active}
+              >
+                <Smile size={20} />
+              </button>
+              
+              {showEmojiPicker && <EmojiPicker />}
+              
+              <button 
+                className={`rounded-lg p-2 ${
+                  query.trim() && !isLoading && selectedCategory?.active 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-gray-100 text-gray-400'
+                }`}
+                onClick={handleSendMessage}
+                disabled={!query.trim() || isLoading || !selectedCategory?.active}
+              >
+                <Send size={20} />
+              </button>
+            </div>
+          </div>
           
           {/* Category selection modal */}
           <CategoryModal 
@@ -881,34 +957,3 @@ function ChatApp() {
     </div>
   );
 }
-
-// Main App component
-function App() {
-  // App-level state
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [showModal, setShowModal] = useState(true);
-  
-  // Function to update the selected category
-  const updateSelectedCategory = (category) => {
-    setSelectedCategory(category);
-  };
-  
-  return (
-    <AppContext.Provider value={{ 
-      selectedCategory, 
-      updateSelectedCategory, 
-      showModal, 
-      setShowModal 
-    }}>
-      <Router>
-        <Routes>
-          <Route path="/" element={<ChatApp />} />
-          <Route path="/settings" element={<SettingsWrapper />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AppContext.Provider>
-  );
-}
-
-export default App;
