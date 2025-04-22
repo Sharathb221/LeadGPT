@@ -196,9 +196,6 @@ const SettingsPage = () => {
         
         {/* Settings content */}
         <div className="pl-6 pr-8 py-8 w-full">
-          {/* API Settings Section */}
-          <APISettings />
-          
           {/* Product Owners section */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Owners</h3>
@@ -232,7 +229,7 @@ const SettingsPage = () => {
           </div>
           
           {/* Product Documentation section */}
-          <div>
+          <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Documentation</h3>
             <div className="flex gap-5 flex-wrap">
               {/* Upload panel */}
@@ -316,6 +313,14 @@ const SettingsPage = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+          
+          {/* OpenAI API Configuration section */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">OpenAI API Configuration</h3>
+            <div className="bg-white rounded-lg shadow-sm">
+              <APISettings />
             </div>
           </div>
         </div>

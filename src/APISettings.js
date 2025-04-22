@@ -28,9 +28,7 @@ const APISettings = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-5 mb-8">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">OpenAI API Configuration</h3>
-      
+    <div className="p-5">
       <div className="max-w-md">
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
