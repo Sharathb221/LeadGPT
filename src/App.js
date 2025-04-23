@@ -15,14 +15,16 @@ import notSureImg from './assets/images/not-sure.png';
 import avatar from './assets/images/avatar.png';
 import Logo from './assets/images/logo.png'; 
 
+
 // Import styles
 import './modalStyles.css';
 
 // Import the new components and services
 import PDFContextProvider, { PDFContext } from './PDFContextProvider';
+import { AuthProvider } from './authContext'; // Add AuthProvider import
 import { generateResponse } from './openAIService';
 import SettingsPage from './SettingsPage';
-
+import LoginPage from './loginPage'; // Add LoginPage import
 
 // Create AppContext for sharing state between components
 export const AppContext = createContext();
@@ -39,22 +41,25 @@ function App() {
   };
   
   return (
-    <AppContext.Provider value={{ 
-      selectedCategory, 
-      updateSelectedCategory, 
-      showModal, 
-      setShowModal 
-    }}>
-      <PDFContextProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<ChatApp />} />
-            <Route path="/settings" element={<SettingsWrapper />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </PDFContextProvider>
-    </AppContext.Provider>
+    <AuthProvider> {/* Wrap the entire app with AuthProvider */}
+      <AppContext.Provider value={{ 
+        selectedCategory, 
+        updateSelectedCategory, 
+        showModal, 
+        setShowModal 
+      }}>
+        <PDFContextProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} /> {/* Add login route */}
+              <Route path="/" element={<ChatApp />} />
+              <Route path="/settings" element={<SettingsWrapper />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </PDFContextProvider>
+      </AppContext.Provider>
+    </AuthProvider>
   );
 }
 
@@ -761,5 +766,4 @@ function ChatApp() {
         </div>
       </div>
     </div>
-  );
-}
+  );}

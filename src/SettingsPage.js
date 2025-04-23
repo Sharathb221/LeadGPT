@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import APISettings from './APISettings';
 import { extractTextFromPDF, validatePDFFile } from './pdfUtils';
+import { useAuth } from './authContext';
+import { useNavigate } from 'react-router-dom';
+import { X } from 'lucide-react';
+import SearchableDropdown from './SearchableDropdown'; // Import the SearchableDropdown component
 
+// Define the component
 const SettingsPage = () => {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  
   // State for active tab
   const [activeTab, setActiveTab] = useState('Student App');
   
   // State for product owners
-  const [l1SPOC, setL1SPOC] = useState('');
-  const [l2SPOC, setL2SPOC] = useState('');
+  const [l1SPOC, setL1SPOC] = useState(null);
+  const [l2SPOC, setL2SPOC] = useState(null);
   
   // State for file upload
   const [selectedFile, setSelectedFile] = useState(null);
@@ -21,20 +29,33 @@ const SettingsPage = () => {
   // State for file parsing
   const [parsingStatus, setParsingStatus] = useState('');
   
+  // State for admin modal
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  
   // List of available tabs with active state
   const tabs = [
     { name: 'Student App', active: true },
     { name: 'Teacher App', active: false },
     { name: 'Active Teach', active: false },
     { name: 'Orders and Billing', active: false },
-    { name: 'Lead Group Academy', active: false }
+    { name: 'Lead Group Academy', active: false },
   ];
   
   // Save current settings to localStorage - using useCallback to memoize this function
   const saveToLocalStorage = useCallback((updatedChangeLog, lastUploadDate) => {
     const dataToSave = {
-      l1SPOC,
-      l2SPOC,
+      l1SPOC: l1SPOC ? {
+        id: l1SPOC.id,
+        name: l1SPOC.name || l1SPOC.displayName,
+        email: l1SPOC.email,
+        role: l1SPOC.role
+      } : null,
+      l2SPOC: l2SPOC ? {
+        id: l2SPOC.id,
+        name: l2SPOC.name || l2SPOC.displayName,
+        email: l2SPOC.email,
+        role: l2SPOC.role
+      } : null,
       uploadSuccess: true,
       lastUploaded: lastUploadDate || lastUploaded,
       changeLog: updatedChangeLog || changeLog
@@ -53,19 +74,24 @@ const SettingsPage = () => {
     const savedData = localStorage.getItem(`settings_${tab.name}`);
     if (savedData) {
       const data = JSON.parse(savedData);
-      setL1SPOC(data.l1SPOC || '');
-      setL2SPOC(data.l2SPOC || '');
+      setL1SPOC(data.l1SPOC || null);
+      setL2SPOC(data.l2SPOC || null);
       setUploadSuccess(data.uploadSuccess || false);
       setLastUploaded(data.lastUploaded || null);
       setChangeLog(data.changeLog || []);
     } else {
       // Reset states when changing tabs if no saved data
-      setL1SPOC('');
-      setL2SPOC('');
+      setL1SPOC(null);
+      setL2SPOC(null);
       setUploadSuccess(false);
       setSelectedFile(null);
       setChangeLog([]);
     }
+  };
+  
+  // Function to toggle admin modal
+  const toggleAdminModal = () => {
+    setShowAdminModal(!showAdminModal);
   };
   
   // Function to handle file selection
@@ -123,7 +149,7 @@ const SettingsPage = () => {
           fileName: selectedFile.name,
           fileSize: Math.round(selectedFile.size / 1024) + ' KB',
           pageCount: fileData.pageCount,
-          uploadedBy: l1SPOC.split(' ')[0] || 'User',
+          uploadedBy: currentUser?.displayName || currentUser?.email || (l1SPOC ? (l1SPOC.name || l1SPOC.displayName) : 'User'),
           timestamp: 'Just now',
           date: currentDate
         };
@@ -162,22 +188,83 @@ const SettingsPage = () => {
     const savedData = localStorage.getItem(`settings_${activeTab}`);
     if (savedData) {
       const data = JSON.parse(savedData);
-      setL1SPOC(data.l1SPOC || '');
-      setL2SPOC(data.l2SPOC || '');
+      setL1SPOC(data.l1SPOC || null);
+      setL2SPOC(data.l2SPOC || null);
       setUploadSuccess(data.uploadSuccess || false);
       setLastUploaded(data.lastUploaded || null);
       setChangeLog(data.changeLog || []);
     }
   }, [activeTab]);
 
+  // Admin Panel Modal Component
+  const AdminPanelModal = () => {
+    if (!showAdminModal) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+            <h2 className="text-xl font-semibold text-gray-800">Admin Panel</h2>
+            <button 
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              onClick={toggleAdminModal}
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          <div className="p-6">
+            {/* API Settings Component */}
+            <APISettings />
+            
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Admin Settings</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                  <h4 className="font-medium text-indigo-700 mb-2">Global API Settings</h4>
+                  <p className="text-sm text-gray-600 mb-4">Configure system-wide API settings that will affect all users and applications.</p>
+                </div>
+                
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <h4 className="font-medium text-gray-700 mb-2">User Management</h4>
+                  <p className="text-sm text-gray-600">User management functionality will be available in a future update.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-6 border-t border-gray-200 flex justify-end">
+            <button
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-5 py-2 rounded-md transition-colors"
+              onClick={toggleAdminModal}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 left-0 right-0 z-30 h-16 border-b border-gray-200 px-6 flex items-center bg-white">
+      <header className="sticky top-0 left-0 right-0 z-30 h-16 border-b border-gray-200 px-6 flex items-center justify-between bg-white">
         <h1 className="text-xl font-semibold text-gray-800">
-          LEAD GPT 1.0 <span role="img" aria-label="sparkles">✨</span> <span className="font-normal">(Beta)</span>
+          Settings <span className="font-normal"></span>
         </h1>
+        
+        {/* Admin Panel Button */}
+        <button
+          className="bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-800 transition-colors"
+          onClick={toggleAdminModal}
+        >
+          Admin Panel
+        </button>
       </header>
+      
+      {/* Admin Panel Modal */}
+      <AdminPanelModal />
       
       {/* Main content */}
       <div className="flex flex-col bg-gray-50">
@@ -202,37 +289,32 @@ const SettingsPage = () => {
         
         {/* Settings content */}
         <div className="pl-6 pr-8 py-8 w-full">
-          {/* API Settings Section */}
-          <APISettings />
-          
           {/* Product Owners section */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Owners</h3>
             <div className="flex gap-5 flex-wrap">
-              <div className="relative w-72">
-                <div className="relative">
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-md shadow-sm bg-white"
-                    placeholder="Select L1 SPOC"
-                    value={l1SPOC}
-                    onChange={(e) => setL1SPOC(e.target.value)}
-                  />
-                  <span className="absolute right-4 top-3.5 text-gray-400 text-xs">▼</span>
-                </div>
+              <div className="w-72">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  L1 SPOC (Primary Contact)
+                </label>
+                <SearchableDropdown
+                  placeholder="Search for L1 SPOC"
+                  onSelect={setL1SPOC}
+                  selectedUser={l1SPOC}
+                  inputClassName="w-full"
+                />
               </div>
               
-              <div className="relative w-72">
-                <div className="relative">
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-md shadow-sm bg-white"
-                    placeholder="Select L2 SPOC"
-                    value={l2SPOC}
-                    onChange={(e) => setL2SPOC(e.target.value)}
-                  />
-                  <span className="absolute right-4 top-3.5 text-gray-400 text-xs">▼</span>
-                </div>
+              <div className="w-72">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  L2 SPOC (Secondary Contact)
+                </label>
+                <SearchableDropdown
+                  placeholder="Search for L2 SPOC"
+                  onSelect={setL2SPOC}
+                  selectedUser={l2SPOC}
+                  inputClassName="w-full"
+                />
               </div>
             </div>
           </div>
@@ -337,4 +419,5 @@ const SettingsPage = () => {
   );
 };
 
+// Export the component at the top level of the module
 export default SettingsPage;

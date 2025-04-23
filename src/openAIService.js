@@ -35,7 +35,7 @@ export const generateResponse = async (query, documentContext, apiKey) => {
         
         ${trimmedContent}
         
-        Use this document to answer user questions accurately. If the information to answer a query is not in the document, politely state that you don't have that information and suggest that the user upload more documentation or contact the product owner.`
+        Use this document to answer user questions accurately. If the information to answer a query is not in the document, politely state that you don't have that information and suggest that the user upload more documentation or contact the product owner. Give all responses in markdown format. simplify wherever possible without information dilution / loss`
       });
     } else {
       // Default system message when no document is available
