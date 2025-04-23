@@ -1,90 +1,48 @@
-// Import PDF.js worker from CDN in real application
-// For a production implementation, you would use PDF.js properly
+// PDF utilities for real parsing
 
 // Function to extract text from a PDF file
 export const extractTextFromPDF = async (pdfFile) => {
     return new Promise((resolve, reject) => {
       try {
-        // In a real implementation, you would use PDF.js to parse the PDF
-        // For now, we'll use the FileReader to get the file data
         const reader = new FileReader();
         
-        reader.onload = (event) => {
-          // We'll create more realistic content for the demo
-          // This will be used by the AI to provide better responses
-          
-          // Use the actual file name to simulate different content for different files
-          let simulatedContent = "";
-          
-          if (pdfFile.name.toLowerCase().includes("student")) {
-            simulatedContent = `
-            # LEAD Group Student App V5.0 Documentation
+        reader.onload = async (event) => {
+          try {
+            const typedArray = new Uint8Array(event.target.result);
             
-            ## Installation Guide
-            The LEAD Student App V5.0 can be installed from both the Apple App Store and Google Play Store.
-            Minimum requirements: iOS 12+ or Android 8.0+
-            Storage required: 80MB free space
+            // Check if PDF.js is available 
+            if (!window.pdfjsLib) {
+              throw new Error('PDF.js library not found. Make sure it is loaded in your HTML.');
+            }
             
-            ## Getting Started
-            1. Launch the app after installation
-            2. Enter your student ID and the activation code provided by your school
-            3. Create a personal password (min 8 characters, must include one number and special character)
-            4. Complete your profile setup
+            // Load the PDF using PDF.js
+            const loadingTask = window.pdfjsLib.getDocument({ data: typedArray });
+            const pdf = await loadingTask.promise;
             
-            ## Key Features
-            - Digital Textbooks: Access all assigned textbooks in digital format
-            - Assignment Tracker: View and submit assignments with due date reminders
-            - Progress Reports: Real-time access to grades and teacher feedback
-            - Study Planner: Create custom study schedules with reminders
-            - In-app Messaging: Communicate directly with teachers
+            let extractedText = '';
             
-            ## Troubleshooting
-            Common issues:
-            - Login Problems: Reset password through "Forgot Password" or contact school admin
-            - Content not loading: Check internet connection or try clearing the app cache
-            - Assignment submission errors: Ensure file size is under 20MB and in supported format
+            // Process each page and extract text
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              
+              // Extract text from the page
+              const pageText = textContent.items.map(item => item.str).join(' ');
+              extractedText += `\n--- Page ${i} ---\n${pageText}`;
+            }
             
-            ## Support
-            For technical issues:
-            - In-app help center
-            - Email: studentapp@leadgroup.edu
-            - Support hours: Monday-Friday, 8am-6pm
+            // Add metadata to the extracted text
+            extractedText = `
+            PDF Document: ${pdfFile.name}
+            Pages: ${pdf.numPages}
+            
+            ${extractedText}
             `;
-          } else if (pdfFile.name.toLowerCase().includes("teacher")) {
-            simulatedContent = `
-            # LEAD Group Teacher App Documentation
             
-            ## Overview
-            The Teacher App provides educators with tools to manage classes, track student progress, and deliver content.
-            
-            ## Key Features
-            - Class Management: Create and manage virtual classrooms
-            - Content Distribution: Assign readings and homework
-            - Assessment Tools: Create quizzes and grade assignments
-            - Analytics Dashboard: Track student engagement and performance
-            
-            ## Setup Guide
-            Contact your school administrator for login credentials and setup instructions.
-            `;
-          } else {
-            // Generic content for any other PDF
-            simulatedContent = `
-            # ${pdfFile.name.replace('.pdf', '')} Documentation
-            
-            This document contains information about the ${pdfFile.name.replace('.pdf', '')} product.
-            
-            ## Features
-            - Multiple user-friendly interfaces
-            - Seamless integration with other LEAD products
-            - Regular updates and improvements
-            - Technical support available
-            
-            ## Contact Information
-            For more information, please contact the product owner or visit our support portal.
-            `;
+            resolve(extractedText);
+          } catch (error) {
+            reject(new Error(`Error parsing PDF: ${error.message}`));
           }
-          
-          resolve(simulatedContent);
         };
         
         reader.onerror = (error) => {

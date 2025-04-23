@@ -15,11 +15,17 @@ import notSureImg from './assets/images/not-sure.png';
 import avatar from './assets/images/avatar.png';
 import Logo from './assets/images/logo.png'; 
 
+// Import styles
+import './modalStyles.css';
+
 // Import the new components and services
 import PDFContextProvider, { PDFContext } from './PDFContextProvider';
 import { generateResponse } from './openAIService';
 import SettingsPage from './SettingsPage';
 
+
+// Create AppContext for sharing state between components
+export const AppContext = createContext();
 
 // Main App component
 function App() {
@@ -53,11 +59,7 @@ function App() {
 }
 
 // Export App as the default export
-export default App;// Import polyfill first
-
-
-// Create AppContext for sharing state between components
-export const AppContext = createContext();
+export default App;
 
 // Toast component for notifications
 const Toast = ({ message, isVisible, onClose }) => {
@@ -73,272 +75,18 @@ const Toast = ({ message, isVisible, onClose }) => {
   );
 };
 
-// Add Modal Styles and animations to the document head
-const ModalStyles = () => {
-  useEffect(() => {
-    // Create style element
-    const styleEl = document.createElement('style');
-    styleEl.id = 'modal-styles';
-    
-    // Define modal styles with direct CSS including animations
-    styleEl.innerHTML = `
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      
-      @keyframes fadeOut {
-        from { opacity: 1; }
-        to { opacity: 0; }
-      }
-      
-      .modal-overlay {
-        position: fixed;
-        top: 64px; /* Leave room for the header (h-16 = 64px) */
-        left: 80px; /* Leave room for the sidebar (w-20 = 80px) */
-        right: 0;
-        bottom: 0;
-        background-color: rgba(75, 85, 99, 0.3);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px); /* For Safari */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        animation: fadeIn 0.3s ease-out forwards;
-      }
-      
-      .modal-overlay.closing {
-        animation: fadeOut 0.3s ease-out forwards;
-      }
-      
-      .modal-content {
-        background-color: white;
-        border-radius: 1.5rem;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        padding: 2rem;
-        max-width: 36rem;
-        width: 100%;
-        margin: 0 1rem;
-      }
-      
-      .modal-title {
-        font-size: 1.25rem;
-        font-weight: 500;
-        color: #3730a3;
-        margin-bottom: 2rem;
-        text-align: center;
-      }
-      
-      .category-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1.5rem;
-      }
-      
-      .category-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-      
-      .category-item.active {
-        cursor: pointer;
-        transition: transform 0.2s ease;
-      }
-      
-      .category-item.active:hover {
-        transform: translateY(-4px);
-      }
-      
-      .category-item.inactive {
-        cursor: not-allowed;
-      }
-      
-      .category-icon {
-        aspect-ratio: 1/1;
-        width: 100%;
-        height: 0;
-        padding-bottom: 100%; /* Force a perfect square regardless of content */
-        border-radius: 0.75rem;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      .category-icon.active {
-        background-color: white;
-        border: 1px solid #f3f4f6;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-      }
-      
-      .category-icon.inactive {
-        background-color: #f3f4f6;
-      }
-      
-      .category-image {
-        width: 80%;
-        height: 80%;
-        object-fit: contain;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
-      
-      .category-image.inactive {
-        opacity: 0.6;
-      }
-      
-      .category-title {
-        text-align: center;
-        margin-top: 0.5rem;
-        font-size: 0.875rem;
-      }
-      
-      .category-title.active {
-        font-weight: 500;
-        color: #1f2937;
-      }
-      
-      .category-title.inactive {
-        font-weight: 400;
-        color: #6b7280;
-      }
-      
-      /* Animation for toast */
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      
-      .animate-fade-in {
-        animation: fadeInUp 0.3s ease-out forwards;
-      }
-      
-      /* Hover styles for sidebar icons */
-      .sidebar-icon {
-        transition: background-color 0.2s ease, color 0.2s ease;
-      }
-      
-      .sidebar-icon:hover {
-        background-color: #f3f4f6;
-        color: #4f46e5;
-      }
-      
-      /* Dropdown styles */
-      .category-dropdown {
-        position: relative;
-      }
-      
-      .dropdown-toggle {
-        display: flex;
-        align-items: center;
-        background-color: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
-        cursor: pointer;
-        transition: border-color 0.2s ease;
-      }
-      
-      .dropdown-toggle:hover {
-        border-color: #d1d5db;
-      }
-      
-      .dropdown-menu {
-        position: absolute;
-        top: calc(100% + 0.5rem);
-        right: 0;
-        width: 16rem;
-        background-color: white;
-        border-radius: 0.75rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        z-index: 40;
-        overflow: hidden;
-        animation: fadeIn 0.2s ease-out;
-      }
-      
-      .dropdown-item {
-        display: flex;
-        align-items: center;
-        padding: 0.75rem 1rem;
-        transition: background-color 0.2s ease;
-      }
-      
-      .dropdown-item.active {
-        cursor: pointer;
-      }
-      
-      .dropdown-item.active:hover {
-        background-color: #f9fafb;
-      }
-      
-      .dropdown-item.inactive {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      
-      .dropdown-item-image {
-        width: 2rem;
-        height: 2rem;
-        object-fit: contain;
-        margin-right: 0.75rem;
-      }
-      
-      .dropdown-item-title {
-        font-size: 0.875rem;
-      }
-      
-      .dropdown-item.active .dropdown-item-title {
-        font-weight: 500;
-        color: #1f2937;
-      }
-      
-      .dropdown-item.inactive .dropdown-item-title {
-        color: #6b7280;
-      }
-      
-      .dropdown-item.selected {
-        background-color: #f3f4f6;
-      }
-    `;
-    
-    // Add to document head
-    document.head.appendChild(styleEl);
-    
-    // Cleanup function to remove the style element when component unmounts
-    return () => {
-      const existingStyle = document.getElementById('modal-styles');
-      if (existingStyle) {
-        document.head.removeChild(existingStyle);
-      }
-    };
-  }, []);
-  
-  return null;
-};
-
 // BotAvatar component
-function BotAvatar({ message }) {
+function BotAvatar({ message, isTyping = false }) {
   const [animationComplete, setAnimationComplete] = useState(false);
   
   return (
-    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-2 overflow-hidden ${animationComplete ? 'bg-indigo-200' : 'bg-white'}`}>
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-2 overflow-hidden ${animationComplete && !isTyping ? 'bg-indigo-200' : 'bg-white'}`}>
       <Lottie 
         animationData={botAnimation} 
-        loop={false}
+        loop={isTyping}
         autoplay={true}
         lottieRef={(ref) => {
-          if (ref) {
+          if (ref && !isTyping) {
             ref.addEventListener('enterFrame', (event) => {
               if (event.currentTime >= 193) {
                 ref.pause();
@@ -566,7 +314,7 @@ function ChatApp() {
   // Access app context for shared state
   const { selectedCategory, updateSelectedCategory, showModal, setShowModal } = useContext(AppContext);
   // Access PDF context for document data
-  const { getContextForQuery } = useContext(PDFContext);
+  const { getContextForQuery, pdfContent, contentStats } = useContext(PDFContext);
   
   // State management
   const [query, setQuery] = useState('');
@@ -576,6 +324,7 @@ function ChatApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [apiError, setApiError] = useState(null);
+  const [documentStatus, setDocumentStatus] = useState('');
   
   // Refs for scrolling and positioning
   const messagesEndRef = useRef(null);
@@ -653,6 +402,23 @@ function ChatApp() {
     scrollToBottom();
   }, [messages]);
 
+  // Check if a document is available when category changes
+  useEffect(() => {
+    if (selectedCategory) {
+      const categoryData = pdfContent[selectedCategory.title];
+      if (categoryData) {
+        const stats = contentStats[selectedCategory.title];
+        if (stats) {
+          setDocumentStatus(`Document loaded: ${categoryData.name} (${stats.pageCount} pages, ${stats.wordCount.toLocaleString()} words)`);
+        } else {
+          setDocumentStatus(`Document loaded: ${categoryData.name}`);
+        }
+      } else {
+        setDocumentStatus('No document uploaded. Please upload a document in Settings.');
+      }
+    }
+  }, [selectedCategory, pdfContent, contentStats]);
+
   // Input ref for focusing after modal close
   const inputRef = useRef(null);
   
@@ -707,6 +473,13 @@ function ChatApp() {
   const handleSendMessage = async () => {
     if (!query.trim() || isLoading) return;
     
+    // Check if a document is available
+    const categoryData = selectedCategory ? pdfContent[selectedCategory.title] : null;
+    if (!categoryData) {
+      showToastMessage('Please upload a document in Settings to use the AI assistant');
+      return;
+    }
+    
     // Reset any previous errors
     setApiError(null);
     
@@ -741,7 +514,8 @@ function ChatApp() {
         id: Date.now() + 1,
         text: botResponseText,
         sender: 'bot',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isPartial: documentContext?.isPartial
       };
       
       setMessages((prev) => [...prev, botResponse]);
@@ -784,9 +558,6 @@ function ChatApp() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Include the modal styles */}
-      <ModalStyles />
-      
       {/* Toast notification */}
       <Toast 
         message={toast.message} 
@@ -814,20 +585,34 @@ function ChatApp() {
           )}
         </header>
 
+        {/* Document status bar */}
+        {selectedCategory && (
+          <div className={`px-6 py-2 text-sm ${
+            documentStatus.includes('No document') ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
+          }`}>
+            {documentStatus}
+          </div>
+        )}
+
         {/* Chat area */}
         <div className="flex-1 relative overflow-hidden" ref={chatContainerRef}>
           {/* Chat messages */}
           <div className="h-full overflow-y-auto p-4 pt-2 pb-24">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
-                <div className="text-center text-gray-500">
+                <div className="text-center text-gray-500 max-w-md mx-auto">
                   <MessageSquare size={40} className="mx-auto mb-2 opacity-40" />
-                  <p>No messages yet. Start a new conversation!</p>
-                  {!selectedCategory?.active && (
-                    <p className="mt-2 text-sm">Note: You are currently in a non-active category. Switch to Student App to start chatting.</p>
+                  <p className="mb-2">No messages yet. Start a new conversation!</p>
+                  {selectedCategory && !pdfContent[selectedCategory.title] && (
+                    <p className="mt-2 text-sm p-2 bg-amber-50 rounded-lg">
+                      <strong>Note:</strong> No document is loaded for {selectedCategory.title}. 
+                      Please upload a PDF document in Settings to get better answers.
+                    </p>
                   )}
                   {apiError && (
-                    <p className="mt-2 text-sm text-red-500">Error: {apiError}</p>
+                    <p className="mt-2 text-sm text-red-500 p-2 bg-red-50 rounded-lg">
+                      <strong>Error:</strong> {apiError}
+                    </p>
                   )}
                 </div>
               </div>
@@ -857,6 +642,11 @@ function ChatApp() {
                         }
                       >
                         {message.text}
+                        {message.sender === 'bot' && message.isPartial && (
+                          <div className="mt-2 text-xs text-gray-500 italic">
+                            Note: This response is based on a portion of the document most relevant to your query.
+                          </div>
+                        )}
                       </div>
                       {message.sender !== 'system' && (
                         <div className={`text-xs mt-1 ${message.sender === 'user' ? 'text-right' : 'text-left'} text-gray-500`}>
@@ -875,21 +665,12 @@ function ChatApp() {
                 
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center mr-2 overflow-hidden bg-indigo-200">
-                        <Lottie 
-                          animationData={botAnimation} 
-                          loop={true}
-                          autoplay={true}
-                          style={{ width: '100%', height: '100%' }}
-                        />
-                      </div>
-                      <div className="bg-white border border-gray-200 text-gray-600 rounded-xl rounded-tl-none px-4 py-2">
-                        <div className="flex space-x-2">
-                          <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '200ms' }}></div>
-                          <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '400ms' }}></div>
-                        </div>
+                    <BotAvatar isTyping={true} />
+                    <div className="bg-white border border-gray-200 text-gray-600 rounded-xl rounded-tl-none px-4 py-2">
+                      <div className="flex space-x-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '400ms' }}></div>
                       </div>
                     </div>
                   </div>
@@ -907,13 +688,29 @@ function ChatApp() {
                 <input 
                   ref={inputRef}
                   type="text" 
-                  placeholder="Type your query here.."
+                  placeholder={
+                    !selectedCategory?.active 
+                      ? "Select an active category first..."
+                      : !pdfContent[selectedCategory?.title]
+                        ? "Upload a document in Settings to start chatting..."
+                        : "Type your query here..."
+                  }
                   className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-1"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  disabled={showModal || isModalClosing || !selectedCategory?.active}
+                  disabled={
+                    showModal || 
+                    isModalClosing || 
+                    !selectedCategory?.active || 
+                    !pdfContent[selectedCategory?.title]
+                  }
                   onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !showModal && !isModalClosing && query.trim() && selectedCategory?.active) {
+                    if (e.key === 'Enter' && 
+                        !showModal && 
+                        !isModalClosing && 
+                        query.trim() && 
+                        selectedCategory?.active &&
+                        pdfContent[selectedCategory?.title]) {
                       handleSendMessage();
                     }
                   }}
@@ -922,9 +719,13 @@ function ChatApp() {
               
               <button
                 ref={emojiButtonRef}
-                className={`text-gray-400 hover:text-gray-600 transition-colors ${!selectedCategory?.active ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={() => selectedCategory?.active && setShowEmojiPicker(!showEmojiPicker)}
-                disabled={!selectedCategory?.active}
+                className={`text-gray-400 hover:text-gray-600 transition-colors ${
+                  !selectedCategory?.active || !pdfContent[selectedCategory?.title] 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : ''
+                }`}
+                onClick={() => selectedCategory?.active && pdfContent[selectedCategory?.title] && setShowEmojiPicker(!showEmojiPicker)}
+                disabled={!selectedCategory?.active || !pdfContent[selectedCategory?.title]}
               >
                 <Smile size={20} />
               </button>
@@ -933,12 +734,17 @@ function ChatApp() {
               
               <button 
                 className={`rounded-lg p-2 ${
-                  query.trim() && !isLoading && selectedCategory?.active 
+                  query.trim() && !isLoading && selectedCategory?.active && pdfContent[selectedCategory?.title]
                   ? 'bg-indigo-600 text-white' 
                   : 'bg-gray-100 text-gray-400'
                 }`}
                 onClick={handleSendMessage}
-                disabled={!query.trim() || isLoading || !selectedCategory?.active}
+                disabled={
+                  !query.trim() || 
+                  isLoading || 
+                  !selectedCategory?.active || 
+                  !pdfContent[selectedCategory?.title]
+                }
               >
                 <Send size={20} />
               </button>

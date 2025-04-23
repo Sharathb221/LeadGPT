@@ -86,21 +86,26 @@ const SettingsPage = () => {
     }
   };
   
-  // Function to handle file upload
+  // Function to handle file upload with real PDF parsing
   const handleUpload = async () => {
     if (selectedFile) {
-      setParsingStatus('Parsing document...');
+      setParsingStatus('Parsing document... This may take a moment.');
       
       try {
-        // Extract text from the PDF using our utility function
+        // Use the real PDF parser to extract text
         const extractedText = await extractTextFromPDF(selectedFile);
+        
+        // Log a sample of the extracted text (for debugging)
+        console.log('PDF text sample:', extractedText.substring(0, 200) + '...');
         
         // Create file data object with the extracted text
         const fileData = {
           name: selectedFile.name,
           size: selectedFile.size,
           type: selectedFile.type,
-          content: extractedText
+          content: extractedText,
+          pageCount: extractedText.split('--- Page').length - 1, // Rough estimate of page count
+          parseDate: new Date().toISOString()
         };
         
         // Store in localStorage - this will overwrite any existing file for this tab
@@ -108,17 +113,18 @@ const SettingsPage = () => {
         
         // Update UI states - always set to true on successful upload
         const currentDate = new Date().toLocaleDateString();
-        const currentTime = new Date().toLocaleTimeString();
         setUploadSuccess(true);
         setLastUploaded(currentDate);
-        setParsingStatus('Document parsed successfully!');
+        setParsingStatus(`Document parsed successfully! Extracted ${fileData.pageCount} pages.`);
         
         // Create a new entry for the changelog
         const newEntry = {
           document: 'Product Documentation',
           fileName: selectedFile.name,
+          fileSize: Math.round(selectedFile.size / 1024) + ' KB',
+          pageCount: fileData.pageCount,
           uploadedBy: l1SPOC.split(' ')[0] || 'User',
-          timestamp: currentTime,
+          timestamp: 'Just now',
           date: currentDate
         };
         
@@ -135,7 +141,7 @@ const SettingsPage = () => {
         // Clear status message after delay
         setTimeout(() => {
           setParsingStatus('');
-        }, 3000);
+        }, 5000);
       } catch (error) {
         console.error("Error processing PDF:", error);
         setParsingStatus(`Error: ${error.message}`);
@@ -196,6 +202,9 @@ const SettingsPage = () => {
         
         {/* Settings content */}
         <div className="pl-6 pr-8 py-8 w-full">
+          {/* API Settings Section */}
+          <APISettings />
+          
           {/* Product Owners section */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Owners</h3>
@@ -229,7 +238,7 @@ const SettingsPage = () => {
           </div>
           
           {/* Product Documentation section */}
-          <div className="mb-8">
+          <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Documentation</h3>
             <div className="flex gap-5 flex-wrap">
               {/* Upload panel */}
@@ -264,7 +273,9 @@ const SettingsPage = () => {
                   
                   {selectedFile && (
                     <div className="mt-4 text-center">
-                      <p className="text-sm text-gray-600 mb-2">Selected: {selectedFile.name}</p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                      </p>
                       <button
                         className="bg-green-500 text-white px-4 py-2 rounded text-sm"
                         onClick={handleUpload}
@@ -300,7 +311,12 @@ const SettingsPage = () => {
                         <div className="flex justify-between items-center">
                           <div className="text-sm text-gray-600">
                             <p>Document uploaded by <span className="font-semibold">{entry.uploadedBy}</span></p>
-                            {entry.fileName && <p className="text-xs text-gray-500 mt-1">{entry.fileName}</p>}
+                            {entry.fileName && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {entry.fileName} ({entry.fileSize || 'Unknown size'})
+                                {entry.pageCount && ` - ${entry.pageCount} pages`}
+                              </p>
+                            )}
                           </div>
                           <div className="text-xs text-gray-400">{entry.timestamp}</div>
                         </div>
@@ -313,14 +329,6 @@ const SettingsPage = () => {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-          
-          {/* OpenAI API Configuration section */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">OpenAI API Configuration</h3>
-            <div className="bg-white rounded-lg shadow-sm">
-              <APISettings />
             </div>
           </div>
         </div>
