@@ -15,16 +15,15 @@ import notSureImg from './assets/images/not-sure.png';
 import avatar from './assets/images/avatar.png';
 import Logo from './assets/images/logo.png'; 
 
-
 // Import styles
 import './modalStyles.css';
 
 // Import the new components and services
 import PDFContextProvider, { PDFContext } from './PDFContextProvider';
-import { AuthProvider } from './authContext'; // Add AuthProvider import
+import { AuthProvider, useAuth } from './authContext';
 import { generateResponse } from './openAIService';
 import SettingsPage from './SettingsPage';
-import LoginPage from './loginPage'; // Add LoginPage import
+import LoginPage from './loginPage';
 
 // Create AppContext for sharing state between components
 export const AppContext = createContext();
@@ -41,7 +40,7 @@ function App() {
   };
   
   return (
-    <AuthProvider> {/* Wrap the entire app with AuthProvider */}
+    <AuthProvider>
       <AppContext.Provider value={{ 
         selectedCategory, 
         updateSelectedCategory, 
@@ -51,7 +50,7 @@ function App() {
         <PDFContextProvider>
           <Router>
             <Routes>
-              <Route path="/login" element={<LoginPage />} /> {/* Add login route */}
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/" element={<ChatApp />} />
               <Route path="/settings" element={<SettingsWrapper />} />
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -242,12 +241,28 @@ function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
   );
 }
 
-// Sidebar component with navigation
+// Sidebar component with navigation - MODIFIED with logout dropdown
 function Sidebar({ onNavigate, activePage }) {
+  const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error("Failed to log out", error);
+    }
+  };
+
   return (
     <div className="fixed top-0 left-0 h-screen w-20 bg-white border-r border-gray-200 flex flex-col items-center z-50">
       <div className="p-4">
-        <div className="w-12 h-12 bg-indigo-700 rounded-xl flex items-center justify-center">
+        <div 
+          className="w-12 h-12 bg-indigo-700 rounded-xl flex items-center justify-center cursor-pointer"
+          onClick={() => onNavigate('home')}
+        >
           <img src={Logo} alt="Logo Icon" className="w-12 h-12 object-contain" />
         </div>
       </div>
@@ -275,10 +290,25 @@ function Sidebar({ onNavigate, activePage }) {
           <Settings size={20} />
         </button>
 
-        <div className="mb-4">
-          <div className="w-10 h-10 bg-red-100 rounded-full overflow-hidden">
+        <div className="mb-4 relative">
+          <div 
+            className="w-10 h-10 bg-red-100 rounded-full overflow-hidden cursor-pointer"
+            onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
+          >
             <img src={avatar} alt="User avatar" className="w-full h-full object-cover" />
           </div>
+          
+          {/* Logout dropdown */}
+          {showLogoutDropdown && (
+            <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white shadow-lg rounded-md border border-gray-200 w-24 z-50">
+              <button 
+                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -330,11 +360,13 @@ function ChatApp() {
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [apiError, setApiError] = useState(null);
   const [documentStatus, setDocumentStatus] = useState('');
+  const [showTooltip, setShowTooltip] = useState(false); // Added for document status tooltip
   
   // Refs for scrolling and positioning
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const emojiButtonRef = useRef(null);
+  const inputRef = useRef(null);
   
   // Simple set of emojis for the demo
   const commonEmojis = ["😊", "👍", "❤️", "🙌", "🤔", "😂", "🎉", "👏", "🔥", "✅", "⭐", "🚀"];
@@ -423,10 +455,8 @@ function ChatApp() {
       }
     }
   }, [selectedCategory, pdfContent, contentStats]);
-
-  // Input ref for focusing after modal close
-  const inputRef = useRef(null);
   
+  // MODIFIED function to handle category selection (focus on input)
   const handleCategorySelect = (category) => {
     // If this is called from modal (first time)
     if (showModal) {
@@ -443,6 +473,13 @@ function ChatApp() {
           inputRef.current.focus();
         }
       }, 300); // Match this to the CSS animation duration
+    } else {
+      // When changing category from dropdown, also focus the input
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
     }
     
     // Update the selected category in the app context
@@ -473,6 +510,11 @@ function ChatApp() {
   const handleEmojiClick = (emoji) => {
     setQuery((prev) => prev + emoji);
     setShowEmojiPicker(false);
+    
+    // Focus back on the input after selecting an emoji
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleSendMessage = async () => {
@@ -574,9 +616,12 @@ function ChatApp() {
       <Sidebar onNavigate={handleNavigate} activePage="home" />
 
       <div className="flex-1 flex flex-col pl-20">
-        {/* Header with fixed emoji accessibility */}
+        {/* Header with fixed emoji accessibility - MODIFIED to make title clickable */}
         <header className="sticky top-0 left-0 right-0 z-30 h-16 border-b border-gray-200 px-6 flex items-center justify-between bg-white">
-          <h1 className="text-xl font-semibold text-gray-800">
+          <h1 
+            className="text-xl font-semibold text-gray-800 cursor-pointer"
+            onClick={() => handleNavigate('home')}
+          >
             LEAD GPT 1.0 <span role="img" aria-label="sparkles">✨</span> <span className="font-normal">(Beta)</span>
           </h1>
           
@@ -590,12 +635,25 @@ function ChatApp() {
           )}
         </header>
 
-        {/* Document status bar */}
+        {/* Document status bar - MODIFIED with hover effect */}
         {selectedCategory && (
-          <div className={`px-6 py-2 text-sm ${
-            documentStatus.includes('No document') ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
-          }`}>
-            {documentStatus}
+          <div 
+            className={`px-6 py-2 flex items-center gap-2 relative ${
+              documentStatus.includes('No document') ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
+            }`}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            <div className={`w-3 h-3 rounded-full ${documentStatus.includes('No document') ? 'bg-amber-600' : 'bg-green-600'}`}></div>
+            <span className="text-sm">
+              {documentStatus.includes('No document') ? 'NOT READY' : 'READY'}
+            </span>
+            
+            {showTooltip && (
+              <div className="absolute top-full left-0 right-0 bg-white shadow-lg z-50 p-3 rounded-md border border-gray-200 text-sm text-gray-700">
+                {documentStatus}
+              </div>
+            )}
           </div>
         )}
 
@@ -685,14 +743,13 @@ function ChatApp() {
             )}
           </div>
           
-          {/* Input area at bottom */}
+          {/* Input area at bottom - MODIFIED to use textarea instead of input */}
           <div className="absolute bottom-0 left-0 right-0 bg-gray-50 p-4">
             <div className="flex items-center gap-3 max-w-4xl mx-auto bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex-1 flex items-center">
-                <PenLine size={18} className="text-gray-400 mr-3 ml-1" />
-                <input 
+              <div className="flex-1 flex items-start"> {/* Changed from items-center to items-start */}
+                <PenLine size={18} className="text-gray-400 mr-3 ml-1 mt-2" /> {/* Added mt-2 to align with taller input */}
+                <textarea 
                   ref={inputRef}
-                  type="text" 
                   placeholder={
                     !selectedCategory?.active 
                       ? "Select an active category first..."
@@ -700,7 +757,14 @@ function ChatApp() {
                         ? "Upload a document in Settings to start chatting..."
                         : "Type your query here..."
                   }
-                  className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-1"
+                  
+                  className="bg-white border-none outline-none w-full text-gray-700 placeholder-gray-400 text-sm py-2 min-h-[60px] resize-none" 
+                  /* Changes: 
+                   * - Changed from input to textarea
+                   * - Added min-h-[60px] to make it twice as tall
+                   * - Added resize-none to prevent manual resizing
+                   * - Changed py-1 to py-2 for better vertical padding
+                   */
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   disabled={
@@ -710,12 +774,13 @@ function ChatApp() {
                     !pdfContent[selectedCategory?.title]
                   }
                   onKeyPress={(e) => {
-                    if (e.key === 'Enter' && 
+                    if (e.key === 'Enter' && !e.shiftKey && 
                         !showModal && 
                         !isModalClosing && 
                         query.trim() && 
                         selectedCategory?.active &&
                         pdfContent[selectedCategory?.title]) {
+                      e.preventDefault(); // Prevent new line on Enter without shift
                       handleSendMessage();
                     }
                   }}
@@ -766,4 +831,5 @@ function ChatApp() {
         </div>
       </div>
     </div>
-  );}
+  );
+}
