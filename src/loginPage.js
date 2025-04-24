@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { signInWithGoogle } from './authService';
 import { useAuth } from './authContext';
 import Lottie from 'lottie-react';
 import Icon from './assets/images/Icon.png';
@@ -17,8 +18,17 @@ const LoginPage = () => {
   
   const lottieRef1 = useRef(null);
   const lottieRef2 = useRef(null);
-  const { loginWithGoogle, setError } = useAuth();
+  const { isAuthenticated, setError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // If already authenticated, redirect to home or the page they were trying to access
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = location.state?.from || '/';
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
 
   // Toggle animation - now always enters from right
   const toggleAnimation = () => {
@@ -41,7 +51,7 @@ const LoginPage = () => {
     setErrorMessage('');
     
     try {
-      const { user, error } = await loginWithGoogle();
+      const { user, error } = await signInWithGoogle();
       
       if (error) {
         setErrorMessage(error);
@@ -50,8 +60,8 @@ const LoginPage = () => {
       }
       
       if (user) {
-        console.log("Successfully authenticated:", user);
-        navigate('/');
+        // Navigate will happen automatically from the useEffect above
+        // when isAuthenticated updates
       }
     } catch (err) {
       setErrorMessage('Failed to sign in with Google. Please try again.');

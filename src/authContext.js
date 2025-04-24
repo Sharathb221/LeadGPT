@@ -1,13 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  signInWithGoogle, 
-  loginWithEmailAndPassword, 
-  registerWithEmailAndPassword, 
-  logout as firebaseLogout,
-  subscribeToAuthChanges,
-  updateUserInLocalStorage 
-} from './authService';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { subscribeToAuthChanges, logout as logoutService } from './authService';
 
 // Create the authentication context
 export const AuthContext = createContext();
@@ -18,36 +11,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check if user is logged in on component mount
+  // Subscribe to Firebase auth state changes
   useEffect(() => {
-    // First check localStorage for saved user data for quick UI rendering
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        // Handle invalid JSON in localStorage
-        localStorage.removeItem('user');
-      }
-    }
-
-    // Then subscribe to Firebase auth state changes for full auth state
+    // Subscribe to auth state changes
     const unsubscribe = subscribeToAuthChanges((user) => {
       if (user) {
-        // User is signed in, update state and localStorage
-        const userData = {
-          id: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email.split('@')[0],
-          photoURL: user.photoURL || null,
-          emailVerified: user.emailVerified,
-          // Include any additional properties from Firestore
-          role: user.customData?.role || 'User',
-          department: user.customData?.department,
-          ...user.customData
-        };
-        setCurrentUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+        // User is signed in, store in state and localStorage for offline access
+        setCurrentUser(user);
+        try {
+          // Only store necessary user data
+          const userData = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            photoURL: user.photoURL,
+            emailVerified: user.emailVerified
+          };
+          localStorage.setItem('user', JSON.stringify(userData));
+        } catch (e) {
+          console.error('Error storing user data in localStorage:', e);
+        }
       } else {
         // User is signed out
         setCurrentUser(null);
@@ -56,134 +39,68 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Clean up subscription
+    // If subscription fails, try to get user from localStorage as fallback
+    // This helps when Firebase is unavailable but user has a cached session
+    if (!navigator.onLine) {
+      try {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          setCurrentUser(JSON.parse(savedUser));
+        }
+        setLoading(false);
+      } catch (e) {
+        localStorage.removeItem('user');
+        setLoading(false);
+      }
+    }
+
+    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  // Google login function
-  const loginWithGoogle = async () => {
-    setError(null);
-    try {
-      const { user, error } = await signInWithGoogle();
-      if (error) {
-        setError(error);
-        return { user: null, error };
-      }
-      
-      if (user) {
-        // Extract relevant user data
-        const userData = {
-          id: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email.split('@')[0],
-          photoURL: user.photoURL || null,
-          role: user.customData?.role || 'User',
-          ...user.customData
-        };
-        
-        setCurrentUser(userData);
-        return { user: userData, error: null };
-      }
-      
-      return { user: null, error: 'Authentication failed' };
-    } catch (err) {
-      const errorMessage = err.message || 'Authentication failed';
-      setError(errorMessage);
-      return { user: null, error: errorMessage };
-    }
-  };
-
-  // Email login function
+  // Login function
   const login = async (email, password) => {
     setError(null);
     try {
-      const { user, error } = await loginWithEmailAndPassword(email, password);
-      if (error) {
-        setError(error);
-        return { user: null, error };
+      // Use Firebase login (handled in authService.js)
+      // The auth state listener will update currentUser
+      const result = await loginWithEmailAndPassword(email, password);
+      if (result.error) {
+        throw new Error(result.error);
       }
-      
-      if (user) {
-        // Extract relevant user data
-        const userData = {
-          id: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email.split('@')[0],
-          photoURL: user.photoURL || null,
-          role: user.customData?.role || 'User',
-          ...user.customData
-        };
-        
-        setCurrentUser(userData);
-        return { user: userData, error: null };
-      }
-      
-      return { user: null, error: 'Authentication failed' };
+      return result.user;
     } catch (err) {
-      const errorMessage = err.message || 'Authentication failed';
-      setError(errorMessage);
-      return { user: null, error: errorMessage };
+      setError(err.message || 'Login failed');
+      throw err;
     }
   };
 
   // Logout function
   const logout = async () => {
     try {
-      await firebaseLogout();
-      setCurrentUser(null);
+      await logoutService();
+      // Firebase auth listener will handle state updates
       return { error: null };
     } catch (err) {
       setError(err.message || 'Logout failed');
-      return { error: err.message || 'Logout failed' };
+      throw err;
     }
   };
 
   // Register function
   const register = async (email, password, name) => {
-    setError(null);
     try {
-      const { user, error } = await registerWithEmailAndPassword(email, password, name);
-      if (error) {
-        setError(error);
-        return { user: null, error };
+      // Use Firebase registration (handled in authService.js)
+      // The auth state listener will update currentUser
+      const result = await registerWithEmailAndPassword(email, password);
+      if (result.error) {
+        throw new Error(result.error);
       }
-      
-      if (user) {
-        // Extract relevant user data
-        const userData = {
-          id: user.uid,
-          email: user.email,
-          displayName: name || user.email.split('@')[0],
-          photoURL: user.photoURL || null,
-          role: user.customData?.role || 'User',
-          ...user.customData
-        };
-        
-        setCurrentUser(userData);
-        return { user: userData, error: null };
-      }
-      
-      return { user: null, error: 'Registration failed' };
+      return result.user;
     } catch (err) {
-      const errorMessage = err.message || 'Registration failed';
-      setError(errorMessage);
-      return { user: null, error: errorMessage };
+      setError(err.message || 'Registration failed');
+      throw err;
     }
-  };
-
-  // Update user information
-  const updateUserInfo = (userData) => {
-    // Update the current user state
-    setCurrentUser(prevUser => ({
-      ...prevUser,
-      ...userData
-    }));
-    
-    // Update localStorage
-    const updatedUser = { ...currentUser, ...userData };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    
-    return updatedUser;
   };
 
   // Value to be provided to consumers of this context
@@ -192,11 +109,9 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     setError,
-    loginWithGoogle,
     login,
     logout,
     register,
-    updateUserInfo,
     isAuthenticated: !!currentUser
   };
 
@@ -216,16 +131,28 @@ export const useAuth = () => {
 export const RequireAuth = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
+    // Only redirect after loading is complete and user is not authenticated
     if (!loading && !isAuthenticated) {
-      navigate('/login');
+      // Save the attempted URL for redirecting after login
+      navigate('/login', { state: { from: location.pathname } });
     }
-  }, [isAuthenticated, loading, navigate]);
+  }, [isAuthenticated, loading, navigate, location]);
 
+  // Show loading indicator while checking authentication
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
+  // Render children only if authenticated
   return isAuthenticated ? children : null;
 };

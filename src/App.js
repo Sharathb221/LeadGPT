@@ -10,12 +10,14 @@ import './App.css';
 
 // Import context providers
 import PDFContextProvider from './PDFContextProvider';
-import { AuthProvider } from './authContext';
+import { AuthProvider, RequireAuth } from './authContext';
 
 // Direct imports to avoid issues
 import ChatApp from './components/ChatApp/ChatApp';
 import SettingsWrapper from './components/Settings/SettingsWrapper';
 import LoginPage from './loginPage';
+import ProfilePage from './ProfilePage';
+import UserManagement from './UserManagement';
 
 // Create AppContext for sharing state between components
 export const AppContext = createContext();
@@ -45,9 +47,32 @@ function App() {
         <PDFContextProvider>
           <Router>
             <Routes>
+              {/* Public route */}
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/" element={<ChatApp />} />
-              <Route path="/settings" element={<SettingsWrapper />} />
+              
+              {/* Protected routes */}
+              <Route path="/" element={
+                <RequireAuth>
+                  <ChatApp />
+                </RequireAuth>
+              } />
+              <Route path="/settings" element={
+                <RequireAuth>
+                  <SettingsWrapper />
+                </RequireAuth>
+              } />
+              <Route path="/profile" element={
+                <RequireAuth>
+                  <ProfilePage />
+                </RequireAuth>
+              } />
+              <Route path="/user-management" element={
+                <RequireAuth>
+                  <UserManagement />
+                </RequireAuth>
+              } />
+              
+              {/* Fallback route */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>
