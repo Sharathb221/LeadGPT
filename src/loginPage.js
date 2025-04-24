@@ -1,30 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithGoogle } from './authService';
 import { useAuth } from './authContext';
-import { configureLottie, preloadLottieFiles, slideLottie } from './lottieConfig';
+import Lottie from 'lottie-react';
 import Icon from './assets/images/Icon.png';
 import LoginBackground from './assets/images/Loginbg.jpg';
 import './loginStyles.css';
 
+// Import Lottie animations
+import animationData1 from './assets/animations/Girl_Avatar.json';
+import animationData2 from './assets/animations/Boy_Avatar.json';
+
 const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [lottieFiles, setLottieFiles] = useState(null);
-  const lottieContainerRef = useRef(null);
-  const lottieAnimationRef = useRef(null);
-  const animationSequenceRef = useRef(0);
+  const [currentAnimation, setCurrentAnimation] = useState(0);
   
-  const { setError } = useAuth();
+  const lottieRef1 = useRef(null);
+  const lottieRef2 = useRef(null);
+  const { loginWithGoogle, setError } = useAuth();
   const navigate = useNavigate();
 
-  
+  // Toggle animation - now always enters from right
+  const toggleAnimation = () => {
+    // Simply toggle the current animation
+    setCurrentAnimation(prev => prev === 0 ? 1 : 0);
+  };
+
+  // Set up animation loop
+  useEffect(() => {
+    const interval = setInterval(() => {
+      toggleAnimation();
+    }, 4000); // Switch every 4 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle Google login
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setErrorMessage('');
     
     try {
-      const { user, error } = await signInWithGoogle();
+      const { user, error } = await loginWithGoogle();
       
       if (error) {
         setErrorMessage(error);
@@ -33,6 +50,7 @@ const LoginPage = () => {
       }
       
       if (user) {
+        console.log("Successfully authenticated:", user);
         navigate('/');
       }
     } catch (err) {
@@ -44,10 +62,20 @@ const LoginPage = () => {
 
   return (
     <div className="login-container">
+      {/* Left side - Background with text */}
       <div className="login-background">
         <img src={LoginBackground} alt="Scenic background" className="background-image" />
+        
+        {/* Overlay text on background */}
+        <div 
+          className="background-text-overlay bg-text-light"
+          style={{ fontFamily: 'Lora, serif' }}
+        >
+          Let the light in
+        </div>
       </div>
       
+      {/* Right side - Login form */}
       <div className="login-form-container">
         <div className="login-form">
           <div className="login-header">
@@ -55,12 +83,43 @@ const LoginPage = () => {
               <img src={Icon} alt="LEAD GPT Logo" className="logo" />
               <h1 className="app-title">LEAD GPT 1.0 <span className="sparkle">✨</span> <span className="beta-tag">(Beta)</span></h1>
             </div>
-            <h2 className="welcome-text">Hello there!</h2>
+            <h2 
+              className="welcome-text"
+              style={{ fontFamily: 'Lora, serif' }}
+            >
+              Hello there!
+            </h2>
           </div>
           
+          {/* Avatar with Lottie animation */}
           <div className="user-avatar-container">
             <div className="user-avatar-circle">
-              <div className="lottie-container" id="lottie-container"></div>
+              <div className="animation-wrapper">
+                {/* Always render both animations */}
+                <div 
+                  className={`animation-item ${currentAnimation === 0 ? 'active' : 'inactive'} ${
+                    currentAnimation === 0 ? 'slide-in-right' : 'slide-out-left'
+                  }`}
+                >
+                  <Lottie
+                    lottieRef={lottieRef1}
+                    animationData={animationData1}
+                    loop={true}
+                  />
+                </div>
+                
+                <div 
+                  className={`animation-item ${currentAnimation === 1 ? 'active' : 'inactive'} ${
+                    currentAnimation === 1 ? 'slide-in-right' : 'slide-out-left'
+                  }`}
+                >
+                  <Lottie
+                    lottieRef={lottieRef2}
+                    animationData={animationData2}
+                    loop={true}
+                  />
+                </div>
+              </div>
             </div>
           </div>
           

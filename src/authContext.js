@@ -1,5 +1,13 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { 
+  signInWithGoogle, 
+  loginWithEmailAndPassword, 
+  registerWithEmailAndPassword, 
+  logout as firebaseLogout,
+  subscribeToAuthChanges,
+  updateUserInLocalStorage 
+} from './authService';
 
 // Create the authentication context
 export const AuthContext = createContext();
@@ -12,7 +20,7 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is logged in on component mount
   useEffect(() => {
-    // Check localStorage for saved user data
+    // First check localStorage for saved user data for quick UI rendering
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
@@ -22,66 +30,160 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
       }
     }
-    setLoading(false);
+
+    // Then subscribe to Firebase auth state changes for full auth state
+    const unsubscribe = subscribeToAuthChanges((user) => {
+      if (user) {
+        // User is signed in, update state and localStorage
+        const userData = {
+          id: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
+          emailVerified: user.emailVerified,
+          // Include any additional properties from Firestore
+          role: user.customData?.role || 'User',
+          department: user.customData?.department,
+          ...user.customData
+        };
+        setCurrentUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        // User is signed out
+        setCurrentUser(null);
+        localStorage.removeItem('user');
+      }
+      setLoading(false);
+    });
+
+    // Clean up subscription
+    return () => unsubscribe();
   }, []);
 
-  // Login function
+  // Google login function
+  const loginWithGoogle = async () => {
+    setError(null);
+    try {
+      const { user, error } = await signInWithGoogle();
+      if (error) {
+        setError(error);
+        return { user: null, error };
+      }
+      
+      if (user) {
+        // Extract relevant user data
+        const userData = {
+          id: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
+          role: user.customData?.role || 'User',
+          ...user.customData
+        };
+        
+        setCurrentUser(userData);
+        return { user: userData, error: null };
+      }
+      
+      return { user: null, error: 'Authentication failed' };
+    } catch (err) {
+      const errorMessage = err.message || 'Authentication failed';
+      setError(errorMessage);
+      return { user: null, error: errorMessage };
+    }
+  };
+
+  // Email login function
   const login = async (email, password) => {
     setError(null);
     try {
-      // Simulate API call
-      if (!email || !password) {
-        throw new Error('Email and password are required');
+      const { user, error } = await loginWithEmailAndPassword(email, password);
+      if (error) {
+        setError(error);
+        return { user: null, error };
       }
       
-      // For demo purposes, accept any valid-looking email/password
-      // In production, you would validate against a real backend
-      if (email.includes('@') && password.length >= 6) {
+      if (user) {
+        // Extract relevant user data
         const userData = {
-          id: 'user-123',
-          email,
-          name: email.split('@')[0],
-          role: 'user'
+          id: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
+          role: user.customData?.role || 'User',
+          ...user.customData
         };
         
-        // Save to localStorage for persistence
-        localStorage.setItem('user', JSON.stringify(userData));
         setCurrentUser(userData);
-        return userData;
-      } else {
-        throw new Error('Invalid email or password');
+        return { user: userData, error: null };
       }
+      
+      return { user: null, error: 'Authentication failed' };
     } catch (err) {
-      setError(err.message || 'Login failed');
-      throw err;
+      const errorMessage = err.message || 'Authentication failed';
+      setError(errorMessage);
+      return { user: null, error: errorMessage };
     }
   };
 
   // Logout function
-  const logout = () => {
-    localStorage.removeItem('user');
-    setCurrentUser(null);
+  const logout = async () => {
+    try {
+      await firebaseLogout();
+      setCurrentUser(null);
+      return { error: null };
+    } catch (err) {
+      setError(err.message || 'Logout failed');
+      return { error: err.message || 'Logout failed' };
+    }
   };
 
-  // Register function (for future implementation)
+  // Register function
   const register = async (email, password, name) => {
-    // This would connect to your backend registration API
-    // For now, just simulate success
+    setError(null);
     try {
-      const userData = {
-        id: 'user-' + Date.now(),
-        email,
-        name,
-        role: 'user'
-      };
+      const { user, error } = await registerWithEmailAndPassword(email, password, name);
+      if (error) {
+        setError(error);
+        return { user: null, error };
+      }
       
-      localStorage.setItem('user', JSON.stringify(userData));
-      setCurrentUser(userData);
-      return userData;
+      if (user) {
+        // Extract relevant user data
+        const userData = {
+          id: user.uid,
+          email: user.email,
+          displayName: name || user.email.split('@')[0],
+          photoURL: user.photoURL || null,
+          role: user.customData?.role || 'User',
+          ...user.customData
+        };
+        
+        setCurrentUser(userData);
+        return { user: userData, error: null };
+      }
+      
+      return { user: null, error: 'Registration failed' };
     } catch (err) {
-      setError(err.message || 'Registration failed');
-      throw err;
+      const errorMessage = err.message || 'Registration failed';
+      setError(errorMessage);
+      return { user: null, error: errorMessage };
     }
+  };
+
+  // Update user information
+  const updateUserInfo = (userData) => {
+    // Update the current user state
+    setCurrentUser(prevUser => ({
+      ...prevUser,
+      ...userData
+    }));
+    
+    // Update localStorage
+    const updatedUser = { ...currentUser, ...userData };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    return updatedUser;
   };
 
   // Value to be provided to consumers of this context
@@ -89,9 +191,12 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     loading,
     error,
+    setError,
+    loginWithGoogle,
     login,
     logout,
     register,
+    updateUserInfo,
     isAuthenticated: !!currentUser
   };
 

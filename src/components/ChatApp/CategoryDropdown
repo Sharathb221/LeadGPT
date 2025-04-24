@@ -1,0 +1,88 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
+
+// CategoryDropdown component
+function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    
+    // Add event listener when dropdown is open
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    // Clean up event listener
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+  
+  const handleCategoryClick = (category) => {
+    if (category.active) {
+      // Track the event (will be integrated with GA and clickstream)
+      console.log(`Category switched to: ${category.title}`);
+      
+      // Call the parent handler
+      onCategorySelect(category);
+      setIsOpen(false);
+    }
+  };
+  
+  return (
+    <div className="category-dropdown" ref={dropdownRef}>
+      <button 
+        className="dropdown-toggle"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center">
+          {selectedCategory && (
+            <>
+              <img 
+                src={selectedCategory.image} 
+                alt={selectedCategory.alt} 
+                className="w-5 h-5 mr-2" 
+              />
+              <span>{selectedCategory.title}</span>
+            </>
+          )}
+          <ChevronDown size={16} className="ml-2" />
+        </div>
+      </button>
+      
+      {isOpen && (
+        <div className="dropdown-menu">
+          {categories.map((category, index) => (
+            <div 
+              key={index} 
+              className={`
+                dropdown-item 
+                ${category.active ? 'active' : 'inactive'} 
+                ${selectedCategory && selectedCategory.id === category.id ? 'selected' : ''}
+              `}
+              onClick={() => handleCategoryClick(category)}
+            >
+              <img 
+                src={category.image} 
+                alt={category.alt} 
+                className="dropdown-item-image" 
+              />
+              <span className="dropdown-item-title">
+                {category.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default CategoryDropdown;

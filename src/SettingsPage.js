@@ -40,6 +40,11 @@ const SettingsPage = () => {
     { name: 'Orders and Billing', active: false },
     { name: 'Lead Group Academy', active: false },
   ];
+
+  // Debug user info
+  useEffect(() => {
+    console.log("SettingsPage - Current User:", currentUser);
+  }, [currentUser]);
   
   // Save current settings to localStorage - using useCallback to memoize this function
   const saveToLocalStorage = useCallback((updatedChangeLog, lastUploadDate) => {
@@ -143,13 +148,16 @@ const SettingsPage = () => {
         setLastUploaded(currentDate);
         setParsingStatus(`Document parsed successfully! Extracted ${fileData.pageCount} pages.`);
         
+        // Use the current user details for the changelog entry
+        const userDisplayName = currentUser?.displayName || currentUser?.email || 'Unknown User';
+        
         // Create a new entry for the changelog
         const newEntry = {
           document: 'Product Documentation',
           fileName: selectedFile.name,
           fileSize: Math.round(selectedFile.size / 1024) + ' KB',
           pageCount: fileData.pageCount,
-          uploadedBy: currentUser?.displayName || currentUser?.email || (l1SPOC ? (l1SPOC.name || l1SPOC.displayName) : 'User'),
+          uploadedBy: userDisplayName,
           timestamp: 'Just now',
           date: currentDate
         };
@@ -298,7 +306,7 @@ const SettingsPage = () => {
                   L1 SPOC (Primary Contact)
                 </label>
                 <SearchableDropdown
-                  placeholder="Search for L1 SPOC"
+                  placeholder="Assign L1 SPOC"
                   onSelect={setL1SPOC}
                   selectedUser={l1SPOC}
                   inputClassName="w-full"
@@ -310,7 +318,7 @@ const SettingsPage = () => {
                   L2 SPOC (Secondary Contact)
                 </label>
                 <SearchableDropdown
-                  placeholder="Search for L2 SPOC"
+                  placeholder="Assign L2 SPOC"
                   onSelect={setL2SPOC}
                   selectedUser={l2SPOC}
                   inputClassName="w-full"
@@ -407,7 +415,7 @@ const SettingsPage = () => {
                   </div>
                 ) : (
                   <div className="flex justify-center items-center h-40 text-gray-400">
-                    <p>Wow. Much empty <span role="img" aria-label="box">📦</span></p>
+                    <p>Wow. Much empty <span role="img" aria-label="box">🐱</span></p>
                   </div>
                 )}
               </div>

@@ -54,7 +54,7 @@ const PDFContextProvider = ({ children }) => {
     }
   }, [selectedCategory]);
 
-  // For the OpenAI API integration, we'll pass the document content
+  // For the OpenAI API integration, we'll pass the content
   const getContextForQuery = async (query) => {
     if (!selectedCategory) return null;
     
@@ -100,8 +100,9 @@ const PDFContextProvider = ({ children }) => {
         
         // If we found relevant pages, return only those
         if (relevantPages.length > 0) {
+          // Changed the message to avoid referencing "document" or "sections"
           const relevantContent = 
-            "The following sections from the document seem most relevant to your query:\n\n" +
+            "Here's the most relevant information to help with your query:\n\n" +
             relevantPages.map(page => page.content).join('\n');
           
           return {
@@ -114,7 +115,7 @@ const PDFContextProvider = ({ children }) => {
       }
     }
     
-    // Return the complete content of the PDF if no relevant chunks found or content is small
+    // Return the complete content
     return {
       documentContent: categoryData.content,
       documentName: categoryData.name,
