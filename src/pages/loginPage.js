@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { signInWithGoogle } from './authService';
-import { useAuth } from './authContext';
+import { useAuth } from '../contexts/authContext';
 import Lottie from 'lottie-react';
-import Icon from './assets/images/Icon.png';
-import LoginBackground from './assets/images/Loginbg.jpg';
-import './loginStyles.css';
+import Icon from '../assets/images/Icon.png';
+import LoginBackground from '../assets/images/Loginbg.jpg';
+import '../styles/loginStyles.css';
 
 // Import Lottie animations
-import animationData1 from './assets/animations/Girl_Avatar.json';
-import animationData2 from './assets/animations/Boy_Avatar.json';
+import animationData1 from '../assets/animations/Girl_Avatar.json';
+import animationData2 from '../assets/animations/Boy_Avatar.json';
 
 const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +17,7 @@ const LoginPage = () => {
   
   const lottieRef1 = useRef(null);
   const lottieRef2 = useRef(null);
-  const { isAuthenticated, setError } = useAuth();
+  const { isAuthenticated, setError, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -51,21 +50,13 @@ const LoginPage = () => {
     setErrorMessage('');
     
     try {
-      const { user, error } = await signInWithGoogle();
+      // Use the login function from auth context that we got from useAuth() above
+      await login();
       
-      if (error) {
-        setErrorMessage(error);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (user) {
-        // Navigate will happen automatically from the useEffect above
-        // when isAuthenticated updates
-      }
+      // The redirect will happen automatically in the useEffect when
+      // isAuthenticated updates after successful login
     } catch (err) {
-      setErrorMessage('Failed to sign in with Google. Please try again.');
-      setError('Authentication failed');
+      setErrorMessage(err.message || 'Failed to sign in with Google. Please try again.');
       setIsLoading(false);
     }
   };

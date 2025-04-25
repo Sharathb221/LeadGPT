@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, User } from 'lucide-react';
-import { getUsers } from './userService';
+import { getUsers } from '../../services/userService';
 
 const SearchableDropdown = ({ 
   placeholder = 'Search for users', 

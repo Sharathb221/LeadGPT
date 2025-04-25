@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Edit2, Trash2, User, ArrowLeft, Save, X } from 'lucide-react';
-import { getUsers } from './userService';
-import { useAuth } from './authContext';
+import { getUsers } from '../../services/userService';
+import { useAuth } from '../../contexts/authContext';
 
 const UserManagement = () => {
   const navigate = useNavigate();

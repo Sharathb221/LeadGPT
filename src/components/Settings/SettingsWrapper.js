@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Bell, Settings, LogOut } from 'lucide-react';
-import { useAuth } from '../../authContext';
-import SettingsPage from '../../SettingsPage';
+import { useAuth } from '../../contexts/authContext';
+import SettingsPage from '../../pages/SettingsPage';
 import avatar from '../../assets/images/avatar.png';
 import Logo from '../../assets/images/logo.png';
 

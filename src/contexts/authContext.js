@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { subscribeToAuthChanges, logout as logoutService } from './authService';
+import { subscribeToAuthChanges, logout as logoutService, signInWithGoogle } from '../services/authService';
 
 // Create the authentication context
 export const AuthContext = createContext();
@@ -58,13 +58,13 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // Login function
-  const login = async (email, password) => {
+  // Login with Google function
+  const login = async () => {
     setError(null);
     try {
-      // Use Firebase login (handled in authService.js)
+      // Use Google sign in from authService.js
       // The auth state listener will update currentUser
-      const result = await loginWithEmailAndPassword(email, password);
+      const result = await signInWithGoogle();
       if (result.error) {
         throw new Error(result.error);
       }
@@ -87,20 +87,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Register function
-  const register = async (email, password, name) => {
-    try {
-      // Use Firebase registration (handled in authService.js)
-      // The auth state listener will update currentUser
-      const result = await registerWithEmailAndPassword(email, password);
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      return result.user;
-    } catch (err) {
-      setError(err.message || 'Registration failed');
-      throw err;
-    }
+  // For compatibility with existing code that might expect a register function
+  const register = async () => {
+    setError('Registration with email/password is not available. Please use Google Sign-In.');
+    throw new Error('Registration with email/password is not available. Please use Google Sign-In.');
   };
 
   // Value to be provided to consumers of this context

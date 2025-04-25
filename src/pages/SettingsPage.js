@@ -1,18 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import APISettings from './APISettings';
-import { extractTextFromPDF, validatePDFFile } from './pdfUtils';
-import { useAuth } from './authContext';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
-import SearchableDropdown from './SearchableDropdown'; // Import the SearchableDropdown component
+import APISettings from '../components/APISettings';
+import { validatePDFFile } from '../utils/pdfUtils';
+import { useAuth } from '../contexts/authContext';
+import { PDFContext } from '../contexts/PDFContextProvider';
+import { AppContext } from '../contexts/AppContext';
+import SearchableDropdown from '../features/user-management/SearchableDropdown';
 
 // Define the component
 const SettingsPage = () => {
   const { currentUser } = useAuth();
+  const { selectedCategory } = useContext(AppContext);
+  const { handlePDFUpload, pdfContent, contentStats } = useContext(PDFContext);
   const navigate = useNavigate();
   
   // State for active tab
-  const [activeTab, setActiveTab] = useState('Student App');
+  const [activeTab, setActiveTab] = useState(selectedCategory?.title || 'Student App');
   
   // State for product owners
   const [l1SPOC, setL1SPOC] = useState(null);
@@ -20,13 +24,6 @@ const SettingsPage = () => {
   
   // State for file upload
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [lastUploaded, setLastUploaded] = useState(null);
-  
-  // State for changelog
-  const [changeLog, setChangeLog] = useState([]);
-  
-  // State for file parsing
   const [parsingStatus, setParsingStatus] = useState('');
   
   // State for admin modal
@@ -47,7 +44,7 @@ const SettingsPage = () => {
   }, [currentUser]);
   
   // Save current settings to localStorage - using useCallback to memoize this function
-  const saveToLocalStorage = useCallback((updatedChangeLog, lastUploadDate) => {
+  const saveToLocalStorage = useCallback((tab) => {
     const dataToSave = {
       l1SPOC: l1SPOC ? {
         id: l1SPOC.id,
@@ -60,14 +57,11 @@ const SettingsPage = () => {
         name: l2SPOC.name || l2SPOC.displayName,
         email: l2SPOC.email,
         role: l2SPOC.role
-      } : null,
-      uploadSuccess: true,
-      lastUploaded: lastUploadDate || lastUploaded,
-      changeLog: updatedChangeLog || changeLog
+      } : null
     };
     
-    localStorage.setItem(`settings_${activeTab}`, JSON.stringify(dataToSave));
-  }, [l1SPOC, l2SPOC, lastUploaded, changeLog, activeTab]);
+    localStorage.setItem(`settings_${tab || activeTab}`, JSON.stringify(dataToSave));
+  }, [l1SPOC, l2SPOC, activeTab]);
   
   // Function to handle tab change
   const handleTabChange = (tab) => {
@@ -81,16 +75,11 @@ const SettingsPage = () => {
       const data = JSON.parse(savedData);
       setL1SPOC(data.l1SPOC || null);
       setL2SPOC(data.l2SPOC || null);
-      setUploadSuccess(data.uploadSuccess || false);
-      setLastUploaded(data.lastUploaded || null);
-      setChangeLog(data.changeLog || []);
     } else {
       // Reset states when changing tabs if no saved data
       setL1SPOC(null);
       setL2SPOC(null);
-      setUploadSuccess(false);
       setSelectedFile(null);
-      setChangeLog([]);
     }
   };
   
@@ -117,65 +106,32 @@ const SettingsPage = () => {
     }
   };
   
-  // Function to handle file upload with real PDF parsing
+  // Function to handle file upload
   const handleUpload = async () => {
-    if (selectedFile) {
+    if (selectedFile && activeTab) {
       setParsingStatus('Parsing document... This may take a moment.');
       
       try {
-        // Use the real PDF parser to extract text
-        const extractedText = await extractTextFromPDF(selectedFile);
+        // Use the PDFContext to handle the upload
+        const result = await handlePDFUpload(selectedFile, activeTab);
         
-        // Log a sample of the extracted text (for debugging)
-        console.log('PDF text sample:', extractedText.substring(0, 200) + '...');
-        
-        // Create file data object with the extracted text
-        const fileData = {
-          name: selectedFile.name,
-          size: selectedFile.size,
-          type: selectedFile.type,
-          content: extractedText,
-          pageCount: extractedText.split('--- Page').length - 1, // Rough estimate of page count
-          parseDate: new Date().toISOString()
-        };
-        
-        // Store in localStorage - this will overwrite any existing file for this tab
-        localStorage.setItem(`file_${activeTab}`, JSON.stringify(fileData));
-        
-        // Update UI states - always set to true on successful upload
-        const currentDate = new Date().toLocaleDateString();
-        setUploadSuccess(true);
-        setLastUploaded(currentDate);
-        setParsingStatus(`Document parsed successfully! Extracted ${fileData.pageCount} pages.`);
-        
-        // Use the current user details for the changelog entry
-        const userDisplayName = currentUser?.displayName || currentUser?.email || 'Unknown User';
-        
-        // Create a new entry for the changelog
-        const newEntry = {
-          document: 'Product Documentation',
-          fileName: selectedFile.name,
-          fileSize: Math.round(selectedFile.size / 1024) + ' KB',
-          pageCount: fileData.pageCount,
-          uploadedBy: userDisplayName,
-          timestamp: 'Just now',
-          date: currentDate
-        };
-        
-        // Always add the new entry to the beginning of the changelog
-        const updatedChangeLog = [newEntry, ...changeLog];
-        setChangeLog(updatedChangeLog);
-        
-        // Save all settings to localStorage
-        saveToLocalStorage(updatedChangeLog, currentDate);
-        
-        // Clear selected file to reset the UI
-        setSelectedFile(null);
-        
-        // Clear status message after delay
-        setTimeout(() => {
-          setParsingStatus('');
-        }, 5000);
+        if (result.success) {
+          setParsingStatus(`Document parsed successfully! ${
+            contentStats[activeTab]?.pageCount 
+              ? `Extracted ${contentStats[activeTab].pageCount} pages.` 
+              : ''
+          }`);
+          
+          // Clear selected file to reset the UI
+          setSelectedFile(null);
+          
+          // Clear status message after delay
+          setTimeout(() => {
+            setParsingStatus('');
+          }, 5000);
+        } else {
+          throw new Error(result.error || 'Failed to upload document');
+        }
       } catch (error) {
         console.error("Error processing PDF:", error);
         setParsingStatus(`Error: ${error.message}`);
@@ -190,7 +146,7 @@ const SettingsPage = () => {
     }
   }, [l1SPOC, l2SPOC, saveToLocalStorage]);
   
-  // Load initial data when component mounts
+  // Load initial data when component mounts or tab changes
   useEffect(() => {
     // Load settings for the active tab
     const savedData = localStorage.getItem(`settings_${activeTab}`);
@@ -198,9 +154,6 @@ const SettingsPage = () => {
       const data = JSON.parse(savedData);
       setL1SPOC(data.l1SPOC || null);
       setL2SPOC(data.l2SPOC || null);
-      setUploadSuccess(data.uploadSuccess || false);
-      setLastUploaded(data.lastUploaded || null);
-      setChangeLog(data.changeLog || []);
     }
   }, [activeTab]);
 
@@ -335,14 +288,14 @@ const SettingsPage = () => {
               <div className="flex-1 min-w-[300px] bg-white rounded-lg shadow-sm p-5">
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className={`w-16 h-16 flex items-center justify-center rounded text-white text-2xl mb-5 ${
-                    uploadSuccess ? 'bg-green-500' : 'bg-amber-500'
+                    pdfContent[activeTab] ? 'bg-green-500' : 'bg-amber-500'
                   }`}>
-                    {uploadSuccess ? "✓" : "↑"}
+                    {pdfContent[activeTab] ? "✓" : "↑"}
                   </div>
                   
-                  {uploadSuccess && (
+                  {pdfContent[activeTab] && (
                     <div className="text-sm text-gray-500 mb-5">
-                      Last uploaded on {lastUploaded}
+                      Last uploaded: {new Date(pdfContent[activeTab].uploadDate).toLocaleDateString()}
                     </div>
                   )}
                   
@@ -350,7 +303,7 @@ const SettingsPage = () => {
                     className="bg-indigo-700 text-white px-5 py-2.5 rounded font-medium text-sm"
                     onClick={() => document.getElementById('file-input').click()}
                   >
-                    {uploadSuccess ? 'Re-Upload Product Documentation' : 'Upload Product Documentation'}
+                    {pdfContent[activeTab] ? 'Re-Upload Product Documentation' : 'Upload Product Documentation'}
                   </button>
                   
                   <input
@@ -388,34 +341,48 @@ const SettingsPage = () => {
                 </div>
               </div>
               
-              {/* Changelog panel */}
+              {/* Current Document Info panel */}
               <div className="flex-1 min-w-[300px] bg-white rounded-lg shadow-sm p-5">
                 <h4 className="font-semibold text-gray-800 pb-3 border-b border-gray-100 mb-4">
-                  Documentation Change Log
+                  Current Document Info
                 </h4>
                 
-                {changeLog.length > 0 ? (
-                  <div>
-                    {changeLog.map((entry, index) => (
-                      <div key={index} className="py-3 border-b border-gray-50">
-                        <div className="flex justify-between items-center">
-                          <div className="text-sm text-gray-600">
-                            <p>Document uploaded by <span className="font-semibold">{entry.uploadedBy}</span></p>
-                            {entry.fileName && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {entry.fileName} ({entry.fileSize || 'Unknown size'})
-                                {entry.pageCount && ` - ${entry.pageCount} pages`}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-400">{entry.timestamp}</div>
+                {pdfContent[activeTab] ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">File Name</p>
+                      <p className="text-sm text-gray-600">{pdfContent[activeTab].name}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Size</p>
+                      <p className="text-sm text-gray-600">{Math.round(pdfContent[activeTab].size / 1024)} KB</p>
+                    </div>
+                    
+                    {contentStats[activeTab] && (
+                      <>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Pages</p>
+                          <p className="text-sm text-gray-600">{contentStats[activeTab].pageCount}</p>
                         </div>
-                      </div>
-                    ))}
+                        
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Word Count</p>
+                          <p className="text-sm text-gray-600">{contentStats[activeTab].wordCount}</p>
+                        </div>
+                      </>
+                    )}
+                    
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Upload Date</p>
+                      <p className="text-sm text-gray-600">
+                        {new Date(pdfContent[activeTab].uploadDate).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex justify-center items-center h-40 text-gray-400">
-                    <p>Wow. Much empty <span role="img" aria-label="box">🐱</span></p>
+                    <p>No document uploaded yet</p>
                   </div>
                 )}
               </div>
@@ -427,5 +394,4 @@ const SettingsPage = () => {
   );
 };
 
-// Export the component at the top level of the module
 export default SettingsPage;

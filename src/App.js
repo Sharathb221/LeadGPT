@@ -1,49 +1,32 @@
 // Import polyfill first
-import './polyfill';  
+import './utils/polyfill';  
 
-import React, { useState, createContext } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Import styles
-import './modalStyles.css';
-import './App.css';
+import './styles/modalStyles.css';
+import './styles/App.css';
 
 // Import context providers
-import PDFContextProvider from './PDFContextProvider';
-import { AuthProvider, RequireAuth } from './authContext';
+import PDFContextProvider from './contexts/PDFContextProvider';
+import { AuthProvider, RequireAuth } from './contexts/authContext';
+import AppContextProvider from './contexts/AppContext';
 
-// Direct imports to avoid issues
+// Import components
 import ChatApp from './components/ChatApp/ChatApp';
 import SettingsWrapper from './components/Settings/SettingsWrapper';
-import LoginPage from './loginPage';
-import ProfilePage from './ProfilePage';
-import UserManagement from './UserManagement';
-
-// Create AppContext for sharing state between components
-export const AppContext = createContext();
+import LoginPage from './pages/loginPage';
+import UserManagement from './features/user-management/UserManagement';
 
 // Main App component
 function App() {
-  // App-level state
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [showModal, setShowModal] = useState(true);
-  
-  // Function to update the selected category
-  const updateSelectedCategory = (category) => {
-    setSelectedCategory(category);
-  };
-  
   // Check that process polyfill is loaded
   console.log('Environment:', window.process?.env?.NODE_ENV || 'polyfill not loaded');
   
   return (
     <AuthProvider>
-      <AppContext.Provider value={{ 
-        selectedCategory, 
-        updateSelectedCategory, 
-        showModal, 
-        setShowModal 
-      }}>
+      <AppContextProvider>
         <PDFContextProvider>
           <Router>
             <Routes>
@@ -61,11 +44,6 @@ function App() {
                   <SettingsWrapper />
                 </RequireAuth>
               } />
-              <Route path="/profile" element={
-                <RequireAuth>
-                  <ProfilePage />
-                </RequireAuth>
-              } />
               <Route path="/user-management" element={
                 <RequireAuth>
                   <UserManagement />
@@ -77,10 +55,9 @@ function App() {
             </Routes>
           </Router>
         </PDFContextProvider>
-      </AppContext.Provider>
+      </AppContextProvider>
     </AuthProvider>
   );
 }
 
-// Export App as the default export
 export default App;

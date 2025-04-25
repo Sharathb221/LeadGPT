@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Bell, Settings, LogOut, User } from 'lucide-react';
-import { useAuth } from '../../authContext';
+import { useAuth } from '../../contexts/authContext';
 import avatar from '../../assets/images/avatar.png';
 import Logo from '../../assets/images/logo.png';
 

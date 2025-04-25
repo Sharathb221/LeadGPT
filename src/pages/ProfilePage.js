@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './authContext';
-import { logout } from './authService';
+import { useAuth } from '../contexts/authContext';
+import { logout } from '../services/authService';
 import { Edit2, Check, X } from 'lucide-react';
-import avatar from './assets/images/avatar.png';
-import Sidebar from './Sidebar';
+import avatar from '../assets/images/avatar.png';
+import Sidebar from '../components/common/Sidebar';
 
 const ProfilePage = () => {
   const { currentUser } = useAuth();

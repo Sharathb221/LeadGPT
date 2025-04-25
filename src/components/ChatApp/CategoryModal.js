@@ -1,4 +1,10 @@
 import React from 'react';
+import studentAppImg from '../../assets/images/student-app.png';
+import teacherAppImg from '../../assets/images/teacher-app.png';
+import activeTeachImg from '../../assets/images/active-teach.png';
+import ordersBillingImg from '../../assets/images/orders-billing.png';
+import leadGroupAcademyImg from '../../assets/images/lead-academy.png';
+import notSureImg from '../../assets/images/not-sure.png';
 
 // Modal component with fade-out animation
 function CategoryModal({ isOpen, isClosing, categories, onCategorySelect }) {

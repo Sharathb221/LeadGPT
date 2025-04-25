@@ -4,9 +4,9 @@ import { MessageSquare, PenLine, Send, Smile, ChevronDown, Home, Bell, Settings,
 import Lottie from 'lottie-react';
 
 // Import context and assets
-import { AppContext } from '../../App';
-import { PDFContext } from '../../PDFContextProvider';
-import { useAuth } from '../../authContext';
+import { AppContext } from '../../contexts/AppContext';
+import { PDFContext } from '../../contexts/PDFContextProvider';
+import { useAuth } from '../../contexts/authContext';
 import botAnimation from '../../assets/animations/bot-animation.json';
 import studentAppImg from '../../assets/images/student-app.png';
 import teacherAppImg from '../../assets/images/teacher-app.png';
@@ -18,10 +18,11 @@ import avatar from '../../assets/images/avatar.png';
 import Logo from '../../assets/images/logo.png';
 
 // Import service
-import { generateResponse } from '../../openAIService';
+import { generateResponse } from '../../services/openAIService';
 
-// Import the DocumentStatus component
-import DocumentStatus from '../../DocumentStatus';
+// Import components
+import DocumentStatus from '../DocumentStatus';
+import Sidebar from '../common/Sidebar';
 
 const MarkdownRenderer = ({ text }) => {
     // Parse Markdown to HTML and sanitize it
@@ -205,80 +206,6 @@ function CategoryDropdown({ categories, selectedCategory, onCategorySelect }) {
                     ))}
                 </div>
             )}
-        </div>
-    );
-}
-
-// Sidebar component with navigation
-function Sidebar({ onNavigate, activePage }) {
-    const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
-    const { logout } = useAuth();
-    const navigate = useNavigate();
-
-    const handleLogout = async () => {
-        try {
-            await logout();
-            navigate('/login');
-        } catch (error) {
-            console.error("Failed to log out", error);
-        }
-    };
-
-    return (
-        <div className="fixed top-0 left-0 h-screen w-20 bg-white border-r border-gray-200 flex flex-col items-center z-50">
-            <div className="p-4">
-                <div
-                    className="w-12 h-12 bg-indigo-700 rounded-xl flex items-center justify-center cursor-pointer"
-                    onClick={() => onNavigate('home')}
-                >
-                    <img src={Logo} alt="Logo Icon" className="w-12 h-12 object-contain" />
-                </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-8 mt-6">
-                <button
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 sidebar-icon ${activePage === 'home' ? 'bg-gray-100' : ''}`}
-                    onClick={() => onNavigate('home')}
-                >
-                    <Home size={20} />
-                </button>
-                <button
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 sidebar-icon"
-                    onClick={() => onNavigate('notifications')}
-                >
-                    <Bell size={20} />
-                </button>
-            </div>
-
-            <div className="flex flex-col items-center mt-auto">
-                <button
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 mb-8 sidebar-icon ${activePage === 'settings' ? 'bg-gray-100' : ''}`}
-                    onClick={() => onNavigate('settings')}
-                >
-                    <Settings size={20} />
-                </button>
-
-                <div className="mb-4 relative">
-                    <div
-                        className="w-10 h-10 bg-red-100 rounded-full overflow-hidden cursor-pointer"
-                        onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
-                    >
-                        <img src={avatar} alt="User avatar" className="w-full h-full object-cover" />
-                    </div>
-
-                    {/* Logout dropdown */}
-                    {showLogoutDropdown && (
-                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white shadow-lg rounded-md border border-gray-200 w-24 z-50">
-                            <button
-                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50"
-                                onClick={handleLogout}
-                            >
-                                Logout
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
         </div>
     );
 }
