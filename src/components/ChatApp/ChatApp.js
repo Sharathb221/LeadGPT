@@ -33,119 +33,85 @@ import Sidebar from '../common/Sidebar';
 
 // Enhanced MarkdownRenderer with proper markdown parsing and syntax highlighting
 // This version specifically formats step-by-step instructions like your screenshot
+/**
+ * Enhanced MarkdownRenderer - A direct replacement for the current implementation
+ * This version uses ReactMarkdown library properly while maintaining exact UI styling
+ * and behavior of the current implementation.
+ */
 const MarkdownRenderer = ({ text }) => {
-    // Replace ** with strong tags for bold text
-    const processedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    // Split the text into lines
-    const lines = processedText.split('\n');
-    
-    // Process the lines
-    const elements = [];
-    let isInList = false;
-    let listItems = [];
-    let currentParagraph = '';
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Check if this line starts with a dot, number, or bullet
-        const isListItem = line.match(/^(\.\s|\d+\.\s|-\s|\•\s)/);
-        
-        if (isListItem) {
-            // If we have a paragraph in progress, add it
-            if (currentParagraph) {
-                elements.push(
-                    <p 
-                        key={`p-${elements.length}`} 
-                        className="mb-4"
-                        dangerouslySetInnerHTML={{ __html: currentParagraph }} 
-                    />
-                );
-                currentParagraph = '';
-            }
-            
-            // Add the list item (removing the dot/bullet at the beginning)
-            const content = line.replace(/^(\.\s|\d+\.\s|-\s|\•\s)/, '');
-            listItems.push(
-                <li 
-                    key={`li-${elements.length}-${listItems.length}`} 
-                    className="mb-3"
-                    dangerouslySetInnerHTML={{ __html: content }} 
-                />
-            );
-            isInList = true;
-        } else if (line === '') {
-            // Empty line - if we're in a list, finish it
-            if (isInList && listItems.length > 0) {
-                elements.push(
-                    <ul key={`ul-${elements.length}`} className="list-disc pl-6 mb-4 mt-2">
-                        {listItems}
-                    </ul>
-                );
-                listItems = [];
-                isInList = false;
-            }
-            
-            // If we have a paragraph, add it
-            if (currentParagraph) {
-                elements.push(
-                    <p 
-                        key={`p-${elements.length}`} 
-                        className="mb-4"
-                        dangerouslySetInnerHTML={{ __html: currentParagraph }} 
-                    />
-                );
-                currentParagraph = '';
-            }
-        } else {
-            // Regular text line
-            
-            // If we're in a list, finish it
-            if (isInList && listItems.length > 0) {
-                elements.push(
-                    <ul key={`ul-${elements.length}`} className="list-disc pl-6 mb-4 mt-2">
-                        {listItems}
-                    </ul>
-                );
-                listItems = [];
-                isInList = false;
-            }
-            
-            // Add to current paragraph
-            if (currentParagraph) {
-                currentParagraph += ' ' + line;
-            } else {
-                currentParagraph = line;
-            }
-        }
-    }
-    
-    // Handle any remaining content
-    if (isInList && listItems.length > 0) {
-        elements.push(
-            <ul key={`ul-${elements.length}`} className="list-disc pl-6 mb-4 mt-2">
-                {listItems}
-            </ul>
-        );
-    }
-    
-    if (currentParagraph) {
-        elements.push(
-            <p 
-                key={`p-${elements.length}`} 
-                className="mb-4"
-                dangerouslySetInnerHTML={{ __html: currentParagraph }} 
-            />
-        );
-    }
-    
     return (
-        <div className="chat-message-content leading-relaxed">
-            {elements}
-        </div>
+      <div className="chat-message-content leading-relaxed">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, rehypeSanitize]}
+          components={{
+            // Code block handling with syntax highlighting
+            code({ node, inline, className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              return !inline && match ? (
+                <SyntaxHighlighter
+                  style={coldarkDark}
+                  language={match[1]}
+                  PreTag="div"
+                  className="rounded my-4"
+                  {...props}
+                >
+                  {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+              ) : (
+                <code className={`${className} px-1 py-0.5 bg-gray-100 rounded`} {...props}>
+                  {children}
+                </code>
+              );
+            },
+            // Maintain the same paragraph spacing
+            p: ({ children }) => <p className="mb-4">{children}</p>,
+            
+            // Maintain exact list styling from original implementation
+            ul: ({ children }) => <ul className="list-disc pl-6 mb-4 mt-2">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 mt-2">{children}</ol>,
+            li: ({ children }) => <li className="mb-3">{children}</li>,
+            
+            // Add consistent styling for other common elements
+            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+            a: ({ children, href }) => (
+              <a 
+                href={href} 
+                className="text-indigo-600 hover:underline" 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                {children}
+              </a>
+            ),
+            h1: ({ children }) => <h1 className="text-xl font-bold mb-4 mt-6">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-lg font-bold mb-3 mt-5">{children}</h2>,
+            h3: ({ children }) => <h3 className="text-md font-bold mb-3 mt-4">{children}</h3>,
+            blockquote: ({ children }) => (
+              <blockquote className="border-l-4 border-gray-200 pl-4 py-2 mb-4 italic">
+                {children}
+              </blockquote>
+            ),
+            hr: () => <hr className="my-4 border-gray-200" />,
+            
+            // Table styling
+            table: ({ children }) => (
+              <div className="overflow-x-auto mb-4">
+                <table className="min-w-full border-collapse">{children}</table>
+              </div>
+            ),
+            thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+            th: ({ children }) => (
+              <th className="border border-gray-200 px-4 py-2 text-left font-medium">{children}</th>
+            ),
+            td: ({ children }) => <td className="border border-gray-200 px-4 py-2">{children}</td>,
+          }}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
     );
-};
+  };
 
 // Toast component for notifications
 const Toast = ({ message, isVisible, onClose }) => {

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import { AppContext } from './AppContext';
 import { extractTextFromPDF } from '../utils/pdfUtils';
 import { useAuth } from './authContext';
@@ -11,6 +11,64 @@ export const PDFContextProvider = ({ children }) => {
   const [pdfContent, setPdfContent] = useState({});
   const [contentStats, setContentStats] = useState({});
   const [documentHistory, setDocumentHistory] = useState({});
+
+  // Load PDF content from localStorage on component mount
+  useEffect(() => {
+    try {
+      // Load PDF content from localStorage
+      const savedPdfContent = localStorage.getItem('pdf_content');
+      if (savedPdfContent) {
+        setPdfContent(JSON.parse(savedPdfContent));
+      }
+
+      // Load content stats from localStorage
+      const savedContentStats = localStorage.getItem('content_stats');
+      if (savedContentStats) {
+        setContentStats(JSON.parse(savedContentStats));
+      }
+
+      // Load document history from localStorage
+      const savedDocHistory = localStorage.getItem('document_history');
+      if (savedDocHistory) {
+        setDocumentHistory(JSON.parse(savedDocHistory));
+      }
+    } catch (error) {
+      console.error('Error loading PDF data from localStorage:', error);
+    }
+  }, []);
+
+  // Save PDF content to localStorage whenever it changes
+  useEffect(() => {
+    if (Object.keys(pdfContent).length > 0) {
+      try {
+        localStorage.setItem('pdf_content', JSON.stringify(pdfContent));
+      } catch (error) {
+        console.error('Error saving PDF content to localStorage:', error);
+      }
+    }
+  }, [pdfContent]);
+
+  // Save content stats to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(contentStats).length > 0) {
+      try {
+        localStorage.setItem('content_stats', JSON.stringify(contentStats));
+      } catch (error) {
+        console.error('Error saving content stats to localStorage:', error);
+      }
+    }
+  }, [contentStats]);
+
+  // Save document history to localStorage whenever it changes
+  useEffect(() => {
+    if (Object.keys(documentHistory).length > 0) {
+      try {
+        localStorage.setItem('document_history', JSON.stringify(documentHistory));
+      } catch (error) {
+        console.error('Error saving document history to localStorage:', error);
+      }
+    }
+  }, [documentHistory]);
 
   // Function to handle PDF upload
   const handlePDFUpload = async (file, category) => {
@@ -32,17 +90,19 @@ export const PDFContextProvider = ({ children }) => {
       };
       
       // Update document history
-      setDocumentHistory(prev => ({
-        ...prev,
+      const updatedHistory = {
+        ...documentHistory,
         [category]: [
           historyEntry,
-          ...(prev[category] || [])
+          ...(documentHistory[category] || [])
         ].slice(0, 10) // Keep last 10 entries
-      }));
+      };
+      
+      setDocumentHistory(updatedHistory);
       
       // Update PDF content for the category
-      setPdfContent(prev => ({
-        ...prev,
+      const updatedPdfContent = {
+        ...pdfContent,
         [category]: {
           content: extractedText,
           name: file.name,
@@ -51,16 +111,20 @@ export const PDFContextProvider = ({ children }) => {
           uploadDate: timestamp,
           uploadedBy: currentUser?.email || 'Unknown user'
         }
-      }));
+      };
+      
+      setPdfContent(updatedPdfContent);
       
       // Update content stats
-      setContentStats(prev => ({
-        ...prev,
+      const updatedContentStats = {
+        ...contentStats,
         [category]: {
           pageCount,
           wordCount
         }
-      }));
+      };
+      
+      setContentStats(updatedContentStats);
       
       return { success: true };
     } catch (error) {
