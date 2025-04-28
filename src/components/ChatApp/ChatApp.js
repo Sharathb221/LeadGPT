@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageSquare, PenLine, Send, Smile, ChevronDown, Home, Bell, Settings, X } from 'lucide-react';
 import Lottie from 'lottie-react';
+// Add React Markdown imports
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { coldarkDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 // Import context and assets
 import { AppContext } from '../../contexts/AppContext';
@@ -24,13 +31,119 @@ import { generateResponse } from '../../services/openAIService';
 import DocumentStatus from '../DocumentStatus';
 import Sidebar from '../common/Sidebar';
 
+// Enhanced MarkdownRenderer with proper markdown parsing and syntax highlighting
+// This version specifically formats step-by-step instructions like your screenshot
 const MarkdownRenderer = ({ text }) => {
-    // Parse Markdown to HTML and sanitize it
+    // Replace ** with strong tags for bold text
+    const processedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Split the text into lines
+    const lines = processedText.split('\n');
+    
+    // Process the lines
+    const elements = [];
+    let isInList = false;
+    let listItems = [];
+    let currentParagraph = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check if this line starts with a dot, number, or bullet
+        const isListItem = line.match(/^(\.\s|\d+\.\s|-\s|\•\s)/);
+        
+        if (isListItem) {
+            // If we have a paragraph in progress, add it
+            if (currentParagraph) {
+                elements.push(
+                    <p 
+                        key={`p-${elements.length}`} 
+                        className="mb-4"
+                        dangerouslySetInnerHTML={{ __html: currentParagraph }} 
+                    />
+                );
+                currentParagraph = '';
+            }
+            
+            // Add the list item (removing the dot/bullet at the beginning)
+            const content = line.replace(/^(\.\s|\d+\.\s|-\s|\•\s)/, '');
+            listItems.push(
+                <li 
+                    key={`li-${elements.length}-${listItems.length}`} 
+                    className="mb-3"
+                    dangerouslySetInnerHTML={{ __html: content }} 
+                />
+            );
+            isInList = true;
+        } else if (line === '') {
+            // Empty line - if we're in a list, finish it
+            if (isInList && listItems.length > 0) {
+                elements.push(
+                    <ul key={`ul-${elements.length}`} className="list-disc pl-6 mb-4 mt-2">
+                        {listItems}
+                    </ul>
+                );
+                listItems = [];
+                isInList = false;
+            }
+            
+            // If we have a paragraph, add it
+            if (currentParagraph) {
+                elements.push(
+                    <p 
+                        key={`p-${elements.length}`} 
+                        className="mb-4"
+                        dangerouslySetInnerHTML={{ __html: currentParagraph }} 
+                    />
+                );
+                currentParagraph = '';
+            }
+        } else {
+            // Regular text line
+            
+            // If we're in a list, finish it
+            if (isInList && listItems.length > 0) {
+                elements.push(
+                    <ul key={`ul-${elements.length}`} className="list-disc pl-6 mb-4 mt-2">
+                        {listItems}
+                    </ul>
+                );
+                listItems = [];
+                isInList = false;
+            }
+            
+            // Add to current paragraph
+            if (currentParagraph) {
+                currentParagraph += ' ' + line;
+            } else {
+                currentParagraph = line;
+            }
+        }
+    }
+    
+    // Handle any remaining content
+    if (isInList && listItems.length > 0) {
+        elements.push(
+            <ul key={`ul-${elements.length}`} className="list-disc pl-6 mb-4 mt-2">
+                {listItems}
+            </ul>
+        );
+    }
+    
+    if (currentParagraph) {
+        elements.push(
+            <p 
+                key={`p-${elements.length}`} 
+                className="mb-4"
+                dangerouslySetInnerHTML={{ __html: currentParagraph }} 
+            />
+        );
+    }
+    
     return (
-        <div
-            className="prose prose-sm prose-blue max-w-none"
-            dangerouslySetInnerHTML={{ __html: text }}
-        />
+        <div className="chat-message-content leading-relaxed">
+            {elements}
+        </div>
     );
 };
 

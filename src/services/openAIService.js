@@ -49,7 +49,10 @@ export const generateResponse = async (query, documentContext, apiKey) => {
       
       Remember:
       - Format responses using markdown (like **bold**, bullet points, or line breaks)
-      - Keep it short, sweet, and helpful
+      - Keep it short, sweet, and helpful, dont add unnecessary details. Max 3 sentences.
+      - Use emojis if it makes sense
+      - Avoid jargon or technical terms unless absolutely necessary
+      - If you need to explain something complex, break it down into simple steps
       - Feel like a real person explaining things, not a robot reading a manual`
       });
       

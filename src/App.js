@@ -1,5 +1,4 @@
-// Import polyfill first
-import './utils/polyfill';  
+
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -7,6 +6,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 // Import styles
 import './styles/modalStyles.css';
 import './styles/App.css';
+import './styles/markdownStyles.css';
+
 
 // Import context providers
 import PDFContextProvider from './contexts/PDFContextProvider';
